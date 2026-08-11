@@ -10,6 +10,18 @@ import {
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import {
+  AppWindow,
+  ArrowUp,
+  Cable,
+  Check,
+  LogOut,
+  MessageCircle,
+  Plus,
+  Share2,
+  UsersRound,
+  X,
+} from "lucide-react";
+import {
   FormEvent,
   KeyboardEvent,
   useCallback,
@@ -40,6 +52,14 @@ import {
   useDotAuth,
 } from "@/components/benji-auth-provider";
 import { IntegrationsPanel } from "@/components/integrations-panel";
+import {
+  Button,
+  DotBrand,
+  DotMark,
+  Eyebrow,
+  Notice,
+  Surface,
+} from "@/components/dot-ui";
 
 type StoredSession = {
   phoneNumber: string;
@@ -177,28 +197,69 @@ export function ChatShell() {
 
 function AuthUnavailable() {
   return (
-    <main className="grid min-h-dvh place-items-center bg-background px-5 text-foreground">
-      <section className="w-full max-w-md rounded-[30px] border border-black/8 bg-white/80 p-7 text-center shadow-[0_24px_70px_rgba(47,39,30,0.1)]">
-        <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-(--coral) text-xl font-semibold text-white">
-          d
-        </div>
-        <h1 className="mt-6 text-2xl font-semibold tracking-tight">dot is getting ready</h1>
-        <p className="mt-3 text-sm leading-6 text-black/50">
-          Secure sign-in isn’t configured on this deployment yet.
+    <AccessFrame
+      eyebrow="not quite ready"
+      title="Dot is getting ready."
+      description="Secure sign-in isn’t configured on this deployment yet."
+    >
+      <div className="flex min-h-44 flex-col justify-between">
+        <DotMark className="size-5 bg-(--coral)" />
+        <p className="max-w-sm text-sm leading-6 text-muted">
+          Try again once authentication is configured for this environment.
         </p>
-      </section>
-    </main>
+      </div>
+    </AccessFrame>
   );
 }
 
 function BenjiLoading() {
   return (
-    <main className="grid min-h-dvh place-items-center bg-background text-foreground">
-      <div className="flex items-center gap-3 text-sm font-semibold">
-        <span className="grid size-10 place-items-center rounded-2xl bg-(--coral) text-white">
-          d
-        </span>
-        dot
+    <main className="relative grid min-h-dvh place-items-center bg-background text-foreground">
+      <div className="absolute left-5 top-5 sm:left-8 sm:top-7">
+        <DotBrand />
+      </div>
+      <div className="flex items-center gap-2 text-xs text-black/42" role="status">
+        <span className="size-2 animate-pulse rounded-full bg-(--coral)" />
+        opening your conversation
+      </div>
+    </main>
+  );
+}
+
+function AccessFrame({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <main className="relative min-h-dvh overflow-x-hidden bg-background px-5 py-6 text-foreground sm:px-8 sm:py-8">
+      <div className="relative mx-auto max-w-6xl">
+        <DotBrand />
+        <section className="grid min-h-[calc(100dvh-5rem)] items-center gap-10 py-12 md:grid-cols-[1.1fr_0.9fr] md:gap-20">
+          <div className="dot-enter">
+            <Eyebrow>One Dot, everywhere</Eyebrow>
+            <p className="mt-4 max-w-xl text-[3.25rem] font-normal leading-[0.94] tracking-[-0.06em] sm:text-[4.8rem]">
+              Your life, one conversation.
+            </p>
+            <p className="mt-6 max-w-md text-[15px] leading-7 text-muted">
+              Pick up the same thread from messages, web, or mobile. Your context comes with you.
+            </p>
+          </div>
+          <Surface className="dot-enter p-6 shadow-[var(--shadow-float)] sm:p-8">
+            <Eyebrow className="text-(--coral)">{eyebrow}</Eyebrow>
+            <h1 className="mt-3 text-3xl font-normal leading-[1.02] tracking-[-0.045em] sm:text-4xl">
+              {title}
+            </h1>
+            <p className="mt-4 text-sm leading-6 text-muted">{description}</p>
+            {children}
+          </Surface>
+        </section>
       </div>
     </main>
   );
@@ -417,39 +478,31 @@ function FirebaseAuthScreen({ initialError }: { initialError?: string }) {
   const isEmailSent = stage === "email_sent";
   const isEmailLink = stage === "email_link";
   const identifierLooksLikeEmail = isEmailLink || identifierDraft.includes("@");
+  const authEyebrow = isPhoneCode
+    ? "check your phone"
+    : isEmailSent
+      ? "check your email"
+      : "welcome back";
+  const authTitle = isPhoneCode
+    ? "Enter your code."
+    : isEmailSent
+      ? "We sent you a link."
+      : isEmailLink
+        ? "Finish signing in."
+        : "Open Dot.";
+  const authDescription = isPhoneCode
+    ? `We sent a verification code to ${identifierDraft}. It stays outside your Dot chat.`
+    : isEmailSent
+      ? `Open the private sign-in link sent to ${identifierDraft}. You can close this page afterward.`
+      : isEmailLink
+        ? "Confirm the email address that received this private link."
+        : "Use the phone number or email address you already message Dot from. There’s no separate web signup.";
 
   return (
-    <main className="grid min-h-dvh place-items-center overflow-hidden bg-background px-5 py-10 text-foreground">
-      <div className="identity-glow" aria-hidden="true" />
-      <section className="relative w-full max-w-md rounded-[32px] border border-black/8 bg-white/82 p-6 shadow-[0_28px_90px_rgba(47,39,30,0.12)] backdrop-blur-xl sm:p-9">
-        <div className="grid size-12 place-items-center rounded-2xl bg-(--coral) text-xl font-semibold text-white shadow-[0_12px_30px_rgba(225,96,76,0.28)]">
-          d
-        </div>
-        <p className="mt-7 text-xs font-semibold uppercase tracking-[0.18em] text-(--coral)">
-          {isPhoneCode ? "check your phone" : isEmailSent ? "check your email" : "welcome back"}
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">
-          {isPhoneCode
-            ? "enter your code"
-            : isEmailSent
-              ? "we sent you a link"
-              : isEmailLink
-                ? "finish signing in"
-                : "open dot"}
-        </h1>
-        <p className="mt-4 text-[15px] leading-7 text-black/52">
-          {isPhoneCode
-            ? `We sent a verification code to ${identifierDraft}. It arrives in a separate SMS and never becomes part of your Dot chat.`
-            : isEmailSent
-              ? `Open the private sign-in link sent to ${identifierDraft}. You can close this page afterward.`
-              : isEmailLink
-                ? "Confirm the email address that received this private link."
-                : "Use the phone number or email address you message Dot from. There’s no separate web signup."}
-        </p>
-
+    <AccessFrame eyebrow={authEyebrow} title={authTitle} description={authDescription}>
         {isPhoneCode ? (
-          <form onSubmit={verifyCode} className="mt-8 space-y-3">
-            <label htmlFor="verification-code" className="block text-sm font-medium text-black/70">
+          <form onSubmit={verifyCode} className="mt-7 space-y-3">
+            <label htmlFor="verification-code" className="block text-xs font-medium text-black/62">
               verification code
             </label>
             <input
@@ -463,49 +516,49 @@ function FirebaseAuthScreen({ initialError }: { initialError?: string }) {
                 setError(undefined);
               }}
               autoFocus
-              className="h-14 w-full rounded-2xl border border-black/10 bg-(--paper) px-4 font-mono text-xl tracking-[0.22em] outline-none transition focus:border-(--coral)/55 focus:ring-4 focus:ring-(--coral)/10"
+              className="h-13 w-full rounded-[11px] border border-black/12 bg-[#fafaf7] px-4 font-mono text-xl tracking-[0.22em] outline-none transition focus:border-black/35"
             />
-            {error && <p className="text-sm text-(--danger)">{error}</p>}
-            <button
+            {error && <Notice tone="danger">{error}</Notice>}
+            <Button
               type="submit"
+              size="lg"
               disabled={isSubmitting || code.length < 4}
-              className="flex h-14 w-full items-center justify-center rounded-2xl bg-foreground px-5 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+              className="w-full"
             >
               {isSubmitting ? "checking…" : "open dot"}
-            </button>
-            <button
+            </Button>
+            <Button
               id="auth-resend-button"
-              type="button"
+              variant="ghost"
               onClick={() => void resendCode()}
               disabled={isSubmitting || resendAvailableIn > 0}
-              className="h-10 w-full text-xs font-medium text-black/42 hover:text-black/65 disabled:cursor-not-allowed disabled:text-black/25"
+              className="w-full"
             >
               {resendAvailableIn > 0
                 ? `send another code in ${resendAvailableIn}s`
                 : "send another code"}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
               onClick={resetFlow}
-              className="h-10 w-full text-xs font-medium text-black/42 hover:text-black/65"
+              className="w-full"
             >
               use a different phone or email
-            </button>
+            </Button>
           </form>
         ) : isEmailSent ? (
-          <div className="mt-8 space-y-3">
-            {error && <p className="text-sm text-(--danger)">{error}</p>}
-            <button
-              type="button"
-              onClick={resetFlow}
-              className="h-12 w-full rounded-2xl border border-black/10 bg-(--paper) text-sm font-semibold text-black/65 transition hover:bg-white"
-            >
+          <div className="mt-7 space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border border-(--sage)/18 bg-(--sage-soft) px-4 py-3 text-sm text-black/62">
+              <Check className="size-4 text-(--sage)" /> link sent
+            </div>
+            {error && <Notice tone="danger">{error}</Notice>}
+            <Button variant="secondary" size="lg" onClick={resetFlow} className="w-full">
               use a different phone or email
-            </button>
+            </Button>
           </div>
         ) : (
-          <form onSubmit={beginAuthentication} className="mt-8 space-y-3">
-            <label htmlFor="auth-identifier" className="block text-sm font-medium text-black/70">
+          <form onSubmit={beginAuthentication} className="mt-7 space-y-3">
+            <label htmlFor="auth-identifier" className="block text-xs font-medium text-black/62">
               phone number or email
             </label>
             <input
@@ -520,7 +573,7 @@ function FirebaseAuthScreen({ initialError }: { initialError?: string }) {
               }}
               placeholder="+1 555 123 4567 or you@example.com"
               autoFocus={isEmailLink}
-              className="h-14 w-full rounded-2xl border border-black/10 bg-(--paper) px-4 text-base outline-none transition placeholder:text-black/28 focus:border-(--coral)/55 focus:ring-4 focus:ring-(--coral)/10"
+              className="h-13 w-full rounded-[11px] border border-black/12 bg-[#fafaf7] px-4 text-[15px] outline-none transition placeholder:text-black/28 focus:border-black/35"
             />
             {!identifierLooksLikeEmail && (
               <p className="text-xs leading-5 text-black/38">
@@ -528,28 +581,24 @@ function FirebaseAuthScreen({ initialError }: { initialError?: string }) {
                 rates may apply.
               </p>
             )}
-            {error && <p className="text-sm text-(--danger)">{error}</p>}
-            <button
+            {error && <Notice tone="danger">{error}</Notice>}
+            <Button
               id="auth-continue-button"
               type="submit"
+              size="lg"
               disabled={isSubmitting || !identifierDraft.trim()}
-              className="flex h-14 w-full items-center justify-center rounded-2xl bg-foreground px-5 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+              className="w-full"
             >
               {isSubmitting ? "checking…" : isEmailLink ? "finish signing in" : "continue"}
-            </button>
+            </Button>
             {isEmailLink && (
-              <button
-                type="button"
-                onClick={resetFlow}
-                className="h-10 w-full text-xs font-medium text-black/42 hover:text-black/65"
-              >
+              <Button variant="ghost" onClick={resetFlow} className="w-full">
                 request a fresh link
-              </button>
+              </Button>
             )}
           </form>
         )}
-      </section>
-    </main>
+    </AccessFrame>
   );
 }
 
@@ -860,56 +909,37 @@ function ChatClient({
 
   if (authenticated && !conversationId) {
     return (
-      <main className="grid min-h-dvh place-items-center bg-background px-5 text-foreground">
-        <section className="w-full max-w-md rounded-[30px] border border-black/8 bg-white/80 p-7 text-center shadow-[0_24px_70px_rgba(47,39,30,0.1)]">
-          <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-(--coral) text-xl font-semibold text-white">
-            d
-          </div>
-          <h1 className="mt-6 text-2xl font-semibold tracking-tight">dot couldn’t load</h1>
-          <p className="mt-3 text-sm leading-6 text-black/50">
-            {error ?? "Your session is verified, but the conversation is unavailable right now."}
-          </p>
-          <button
-            type="button"
+      <AccessFrame
+        eyebrow="connection issue"
+        title="Dot couldn’t load."
+        description={error ?? "Your session is verified, but the conversation is unavailable right now."}
+      >
+        <div className="mt-7 space-y-2">
+          <Button
+            size="lg"
             onClick={() => void connect()}
             disabled={isConnecting}
-            className="mt-6 h-12 w-full rounded-2xl bg-foreground text-sm font-semibold text-white disabled:opacity-40"
+            className="w-full"
           >
             {isConnecting ? "trying again…" : "try again"}
-          </button>
-          <button
-            type="button"
-            onClick={switchTester}
-            className="mt-2 h-10 w-full text-xs font-medium text-black/42 hover:text-black/65"
-          >
-            sign out
-          </button>
-        </section>
-      </main>
+          </Button>
+          <Button variant="ghost" onClick={switchTester} className="w-full">
+            <LogOut className="size-3.5" /> sign out
+          </Button>
+        </div>
+      </AccessFrame>
     );
   }
 
   if ((!authenticated && !phoneNumber) || !conversationId) {
     return (
-      <main className="grid min-h-dvh place-items-center overflow-hidden bg-background px-5 py-10 text-foreground">
-        <div className="identity-glow" aria-hidden="true" />
-        <section className="relative w-full max-w-md rounded-[32px] border border-black/8 bg-white/82 p-6 shadow-[0_28px_90px_rgba(47,39,30,0.12)] backdrop-blur-xl sm:p-9">
-          <div className="grid size-12 place-items-center rounded-2xl bg-(--coral) text-xl font-semibold text-white shadow-[0_12px_30px_rgba(225,96,76,0.28)]">
-            d
-          </div>
-          <p className="mt-7 text-xs font-semibold uppercase tracking-[0.18em] text-(--coral)">
-            local testing
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">
-            chat with dot on the web
-          </h1>
-          <p className="mt-4 text-[15px] leading-7 text-black/52">
-            Enter a tester phone number to use the same identity, onboarding, history, and memory
-            foundation as messaging—without spending a Linq message.
-          </p>
-
-          <form onSubmit={handleIdentitySubmit} className="mt-8 space-y-3">
-            <label htmlFor="phone-number" className="block text-sm font-medium text-black/70">
+      <AccessFrame
+        eyebrow="local testing"
+        title="Chat with Dot on the web."
+        description="Use a tester phone number to open the same identity, onboarding, and history without spending a Linq message."
+      >
+          <form onSubmit={handleIdentitySubmit} className="mt-7 space-y-3">
+            <label htmlFor="phone-number" className="block text-xs font-medium text-black/62">
               tester phone number
             </label>
             <input
@@ -924,23 +954,23 @@ function ChatClient({
               }}
               placeholder="+1 555 123 4567"
               aria-describedby="identity-note"
-              className="h-14 w-full rounded-2xl border border-black/10 bg-(--paper) px-4 text-base outline-none transition placeholder:text-black/28 focus:border-(--coral)/55 focus:ring-4 focus:ring-(--coral)/10"
+              className="h-13 w-full rounded-[11px] border border-black/12 bg-[#fafaf7] px-4 text-[15px] outline-none transition placeholder:text-black/28 focus:border-black/35"
             />
-            {error && <p className="text-sm text-(--danger)">{error}</p>}
-            <button
+            {error && <Notice tone="danger">{error}</Notice>}
+            <Button
               type="submit"
+              size="lg"
               disabled={isConnecting || !phoneDraft.trim()}
-              className="flex h-14 w-full items-center justify-center rounded-2xl bg-foreground px-5 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+              className="w-full"
             >
               {isConnecting ? "connecting…" : "continue as tester"}
-            </button>
+            </Button>
           </form>
           <p id="identity-note" className="mt-5 text-xs leading-5 text-black/38">
             Development only. This is an identity selector, not authentication. Firebase
             authentication replaces it when credentials are configured.
           </p>
-        </section>
-      </main>
+      </AccessFrame>
     );
   }
 
@@ -950,20 +980,15 @@ function ChatClient({
   );
 
   return (
-    <main className="h-dvh overflow-hidden bg-background text-foreground">
-      <div className="mx-auto flex h-full max-w-400">
-        <aside className="hidden w-76 shrink-0 border-r border-black/7 bg-white/22 px-5 py-6 lg:flex lg:flex-col">
-          <div className="flex items-center gap-3 px-1">
-            <div className="grid size-10 place-items-center rounded-2xl bg-(--coral) text-lg font-semibold text-white shadow-[0_8px_24px_rgba(225,96,76,0.24)]">
-                d
-            </div>
-            <div>
-              <p className="font-semibold tracking-tight">dot</p>
-              <p className="text-xs text-black/42">your personal ai</p>
-            </div>
+    <main className="h-dvh overflow-hidden bg-[#ebebe6] text-foreground lg:p-3">
+      <div className="mx-auto flex h-full max-w-400 overflow-hidden bg-background lg:rounded-[18px] lg:border lg:border-black/10">
+        <aside className="hidden w-68 shrink-0 border-r border-black/10 bg-[#f0f0eb] px-4 py-5 lg:flex lg:flex-col">
+          <div className="flex items-center justify-between px-1">
+            <DotBrand />
+            <span className="text-[9px] uppercase tracking-[0.14em] text-black/30">web</span>
           </div>
 
-          <div className="mt-9 min-h-0 flex-1">
+          <div className="mt-10 min-h-0 flex-1">
             <div className="flex items-center justify-between px-1">
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/34">
                 conversations
@@ -971,33 +996,34 @@ function ChatClient({
               <button
                 type="button"
                 onClick={() => setShowGroupCreator(true)}
-                className="grid size-7 place-items-center rounded-full bg-white/70 text-base text-black/50 ring-1 ring-black/7 transition hover:bg-white hover:text-(--coral)"
+                className="grid size-7 place-items-center rounded-[8px] border border-black/10 bg-white text-black/45 transition hover:border-black/20 hover:text-black"
                 aria-label="Create a group"
+                title="Create a group"
               >
-                +
+                <Plus className="size-3.5" />
               </button>
             </div>
-            <div className="mt-3 space-y-1.5 overflow-y-auto">
+            <div className="dot-scrollbar mt-3 space-y-1 overflow-y-auto">
               {conversations.map((conversation) => (
                 <button
                   key={conversation.id}
                   type="button"
                   onClick={() => void connect(phoneNumber, conversation.id)}
-                  className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition ${
+                  className={`flex w-full items-center gap-3 rounded-[11px] px-2.5 py-2.5 text-left transition ${
                     conversation.id === conversationId
-                      ? "bg-white text-black/78 shadow-sm ring-1 ring-black/6"
-                      : "text-black/48 hover:bg-white/48 hover:text-black/68"
+                      ? "bg-white text-black/78 shadow-sm ring-1 ring-black/8"
+                      : "text-black/46 hover:bg-white/55 hover:text-black/68"
                   }`}
                 >
-                  <span className={`grid size-8 shrink-0 place-items-center rounded-xl text-xs font-semibold ${
-                    conversation.kind === "group"
-                      ? "bg-(--sage)/14 text-(--sage)"
-                      : "bg-(--coral)/12 text-(--coral)"
-                  }`}>
-                    {conversation.kind === "group" ? "g" : "b"}
+                  <span className="grid size-8 shrink-0 place-items-center rounded-[9px] border border-black/8 bg-[#fafaf7] text-black/48">
+                    {conversation.kind === "group" ? (
+                      <UsersRound className="size-3.5" />
+                    ) : (
+                      <MessageCircle className="size-3.5" />
+                    )}
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-xs font-semibold">
+                    <span className="block truncate text-xs font-medium">
                       {conversation.title}
                     </span>
                     <span className="mt-0.5 block truncate text-[10px] text-black/32">
@@ -1011,7 +1037,7 @@ function ChatClient({
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-black/7 bg-white/55 p-4">
+          <div className="mt-4 border-t border-black/10 px-1 pt-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black/34">
               {authenticated ? "verified account" : "local tester"}
             </p>
@@ -1021,31 +1047,27 @@ function ChatClient({
             <button
               type="button"
               onClick={switchTester}
-              className="mt-3 text-xs font-medium text-(--coral) hover:underline"
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-black/46 transition hover:text-black"
             >
+              <LogOut className="size-3" />
               {authenticated ? "sign out" : "switch identity"}
             </button>
           </div>
         </aside>
 
-        <section className="flex min-w-0 flex-1 flex-col">
-          <header className="relative flex h-18 shrink-0 items-center justify-between border-b border-black/6 bg-background/82 px-4 backdrop-blur-lg sm:px-7 lg:h-20 lg:px-9">
+        <section className="flex min-w-0 flex-1 flex-col bg-[#fafaf7]">
+          <header className="relative flex h-16 shrink-0 items-center justify-between border-b border-black/10 bg-white px-3 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-(--coral) font-semibold text-white lg:hidden">
-                {conversationKind === "group" ? "g" : "b"}
-              </div>
+              <DotMark className="hidden size-2.5 lg:block" />
               <div className="hidden min-w-0 sm:block">
-                <p className="truncate text-sm font-semibold">
+                <p className="truncate text-[13px] font-medium">
                   {conversationKind === "group"
                     ? conversationTitle
                     : user?.display_name
                       ? `${user.display_name} + dot`
                       : "you + dot"}
                 </p>
-                <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-black/40">
-                  <span className="size-1.5 rounded-full bg-(--sage)" />
-                  web
-                  <span aria-hidden="true">·</span>
+                <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-black/38">
                   {conversationKind === "group"
                     ? `${members.length} member${members.length === 1 ? "" : "s"}`
                     : isOnboarding ? "getting to know you" : "ready"}
@@ -1055,7 +1077,7 @@ function ChatClient({
                 aria-label="Choose conversation"
                 value={conversationId}
                 onChange={(event) => void connect(phoneNumber, event.target.value)}
-                className="max-w-34 rounded-xl border border-black/8 bg-white/70 px-2 py-2 text-xs outline-none sm:hidden"
+                className="max-w-27 appearance-none rounded-[9px] border border-black/10 bg-[#fafaf7] py-2 pl-2.5 pr-6 text-[11px] outline-none sm:hidden"
               >
                 {conversations.map((conversation) => (
                   <option key={conversation.id} value={conversation.id}>
@@ -1064,39 +1086,48 @@ function ChatClient({
                 ))}
               </select>
             </div>
-            <nav className="absolute left-1/2 flex -translate-x-1/2 items-center rounded-full border border-black/7 bg-white/58 p-1 text-xs font-semibold">
+            <nav className="absolute left-1/2 flex -translate-x-1/2 items-center rounded-[11px] border border-black/10 bg-[#f4f4ef] p-1 text-[11px] font-medium" aria-label="Primary">
               <button
                 type="button"
                 onClick={() => setActiveTab("chat")}
-                className={`rounded-full px-4 py-2 transition ${
+                aria-pressed={activeTab === "chat"}
+                aria-label="Chat"
+                className={`flex h-8 items-center gap-1.5 rounded-[8px] px-2.5 transition sm:px-3 ${
                   activeTab === "chat"
-                    ? "bg-foreground text-white shadow-sm"
-                    : "text-black/42 hover:text-black/65"
+                    ? "bg-foreground text-white"
+                    : "text-black/42 hover:text-black/68"
                 }`}
               >
-                chat
+                <MessageCircle className="size-3 sm:hidden" />
+                <span className="hidden sm:inline">chat</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("apps")}
-                className={`rounded-full px-3 py-2 transition sm:px-4 ${
+                aria-pressed={activeTab === "apps"}
+                aria-label="Apps"
+                className={`flex h-8 items-center gap-1.5 rounded-[8px] px-2 transition sm:px-3 ${
                   activeTab === "apps"
-                    ? "bg-foreground text-white shadow-sm"
-                    : "text-black/42 hover:text-black/65"
+                    ? "bg-foreground text-white"
+                    : "text-black/42 hover:text-black/68"
                 }`}
               >
-                apps
+                <AppWindow className="size-3 sm:hidden" />
+                <span className="hidden sm:inline">apps</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("integrations")}
-                className={`rounded-full px-3 py-2 transition sm:px-4 ${
+                aria-pressed={activeTab === "integrations"}
+                aria-label="Integrations"
+                className={`flex h-8 items-center gap-1.5 rounded-[8px] px-2 transition sm:px-3 ${
                   activeTab === "integrations"
-                    ? "bg-foreground text-white shadow-sm"
-                    : "text-black/42 hover:text-black/65"
+                    ? "bg-foreground text-white"
+                    : "text-black/42 hover:text-black/68"
                 }`}
               >
-                integrations
+                <Cable className="size-3 sm:hidden" />
+                <span className="hidden sm:inline">integrations</span>
               </button>
             </nav>
             <div className="flex items-center gap-2">
@@ -1104,19 +1135,22 @@ function ChatClient({
                 <button
                   type="button"
                   onClick={() => void copyGroupInvite()}
-                  className="rounded-full border border-black/8 bg-white/65 px-3 py-2 text-[11px] font-medium text-black/48 transition hover:text-(--coral)"
+                  className="hidden h-9 items-center gap-1.5 rounded-[10px] border border-black/10 bg-white px-3 text-[11px] font-medium text-black/48 transition hover:border-black/20 hover:text-black sm:flex"
                 >
+                  <Share2 className="size-3.5" />
                   {inviteNotice ?? "invite"}
                 </button>
               )}
               <button
                 type="button"
                 onClick={switchTester}
-                className="rounded-full border border-black/8 bg-white/65 px-3 py-2 text-[11px] font-medium text-black/48 lg:hidden"
+                className="grid size-9 place-items-center rounded-[10px] border border-black/10 bg-white text-black/45 lg:hidden"
+                aria-label={authenticated ? "Sign out" : "Switch identity"}
+                title={authenticated ? "Sign out" : "Switch identity"}
               >
-                {authenticated ? "sign out" : "switch"}
+                <LogOut className="size-3.5" />
               </button>
-              <span className="hidden rounded-full border border-black/8 bg-white/60 px-3 py-1.5 text-[11px] text-black/42 xl:inline">
+              <span className="hidden text-[10px] text-black/34 xl:inline">
                 {authenticated ? "verified web session" : "local test channel"}
               </span>
             </div>
@@ -1135,60 +1169,61 @@ function ChatClient({
             />
           ) : (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-7 sm:py-8">
-              <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col">
+            <div className="dot-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-8 sm:py-9">
+              <div className="mx-auto flex min-h-full w-full max-w-[46rem] flex-col">
                 {messages.length === 0 ? (
-                  <div className="my-auto py-10">
-                    <p className="mb-4 text-sm font-semibold text-(--coral)">
+                  <div className="dot-enter my-auto py-10">
+                    <Eyebrow className="mb-4 text-(--coral)">
                       {conversationKind === "group"
-                        ? "your new group is ready."
-                        : isOnboarding ? "hey, we haven’t properly met yet." : "hey, i’m dot."}
-                    </p>
-                    <h1 className="max-w-2xl text-4xl font-semibold leading-[1.06] tracking-[-0.05em] sm:text-6xl">
+                        ? "your new group"
+                        : isOnboarding ? "we haven’t properly met" : "you + dot"}
+                    </Eyebrow>
+                    <h1 className="max-w-2xl text-[2.8rem] font-normal leading-[0.98] tracking-[-0.06em] sm:text-[4.25rem]">
                       {conversationKind === "group"
-                        ? `welcome to ${conversationTitle}.`
-                        : isOnboarding ? "just say hi. we’ll take it from there." : "what’s on your mind?"}
+                        ? `${conversationTitle} starts here.`
+                        : isOnboarding ? "Say hi. We’ll take it from there." : "What’s on your mind?"}
                     </h1>
-                    <p className="mt-5 max-w-xl text-[15px] leading-7 text-black/48 sm:text-base">
+                    <p className="mt-5 max-w-xl text-[15px] leading-7 text-muted">
                       {conversationKind === "group"
-                        ? "share the invite link, then mention dot whenever the group wants a hand."
+                        ? "Share the invite link. Dot will follow along and jump in when it’s useful."
                         : isOnboarding
-                        ? "no forms. dot will get to know you naturally and ask when something needs clarifying."
-                        : "ask a question, make a plan, or tell dot what you want handled."}
+                        ? "No form to fill out. Just talk normally and Dot will learn the useful context along the way."
+                        : "Ask a question, make a plan, or tell Dot what you want handled."}
                     </p>
-                    {conversationKind === "direct" && <div className="mt-8 grid gap-2.5 sm:grid-cols-3">
+                    {conversationKind === "direct" && <div className="mt-9 grid overflow-hidden rounded-[14px] border border-black/10 bg-black/10 sm:grid-cols-3 sm:gap-px">
                       {suggestions.map((suggestion) => (
                         <button
                           key={suggestion}
                           type="button"
                           onClick={() => void submitMessage(suggestion)}
-                          className="rounded-2xl border border-black/7 bg-white/68 p-4 text-left text-sm leading-5 text-black/60 transition hover:-translate-y-0.5 hover:border-(--coral)/25 hover:bg-white hover:shadow-[0_12px_30px_rgba(46,38,28,0.06)]"
+                          className="group flex min-h-20 items-end justify-between border-b border-black/8 bg-white p-4 text-left text-sm leading-5 text-black/56 transition last:border-b-0 hover:bg-[#f7f7f3] hover:text-black sm:border-b-0"
                         >
-                          {suggestion}
+                          <span>{suggestion}</span>
+                          <ArrowUp className="size-3.5 rotate-45 text-black/25 transition group-hover:text-black/55" />
                         </button>
                       ))}
                     </div>}
                   </div>
                 ) : (
-                  <div className="mt-auto space-y-5 pb-2" aria-live="polite">
+                  <div className="mt-auto space-y-4 pb-2" aria-live="polite">
                     {messages.map((message) => (
                       <div
                         key={message.id}
                         className={`group flex ${message.role === "user" && message.is_current_user ? "justify-end" : "justify-start"}`}
                       >
-                        <div className="max-w-[88%] sm:max-w-[76%]">
+                        <div className="max-w-[90%] sm:max-w-[78%]">
                           {conversationKind === "group" && message.role === "user" && !message.is_current_user && (
                             <p className="mb-1 px-1 text-[10px] font-semibold text-black/36">
                               {message.sender_display_name ?? "group member"}
                             </p>
                           )}
                           <div
-                            className={`whitespace-pre-wrap rounded-[24px] px-4 py-3 text-[15px] leading-6 sm:px-5 sm:py-3.5 ${
+                            className={`whitespace-pre-wrap rounded-[16px] px-4 py-3 text-[15px] leading-6 ${
                               message.role === "user" && message.is_current_user
-                                ? "rounded-br-md bg-foreground text-white"
+                                ? "rounded-br-[4px] bg-foreground text-white"
                                 : message.role === "user"
-                                  ? "rounded-bl-md bg-(--sage)/12 text-black/70 ring-1 ring-(--sage)/10"
-                                : "rounded-bl-md bg-white text-black/72 shadow-[0_5px_22px_rgba(42,35,27,0.045)] ring-1 ring-black/5"
+                                  ? "rounded-bl-[4px] bg-(--sage-soft) text-black/70 ring-1 ring-(--sage)/12"
+                                : "rounded-bl-[4px] border border-black/8 bg-white text-black/72"
                             }`}
                           >
                             <MessageContent content={message.content} />
@@ -1204,7 +1239,7 @@ function ChatClient({
 
                     {isSending && isAwaitingBenji && (
                       <div className="flex justify-start" role="status" aria-label="Dot is typing">
-                        <div className="flex h-11 items-center gap-1.5 rounded-[22px] rounded-bl-md bg-white px-5 shadow-sm ring-1 ring-black/5">
+                        <div className="flex h-10 items-center gap-1.5 rounded-[15px] rounded-bl-[4px] border border-black/8 bg-white px-4">
                           <span className="typing-dot" />
                           <span className="typing-dot" />
                           <span className="typing-dot" />
@@ -1217,10 +1252,10 @@ function ChatClient({
               </div>
             </div>
 
-            <div className="shrink-0 bg-linear-to-t from-background via-background to-transparent px-4 pb-4 pt-3 sm:px-7 sm:pb-7">
-              <div className="mx-auto max-w-3xl">
+            <div className="shrink-0 border-t border-black/8 bg-[#fafaf7] px-4 pb-4 pt-3 sm:px-8 sm:pb-6 sm:pt-4">
+              <div className="mx-auto max-w-[46rem]">
                 {error && conversationId && (
-                  <div className="mb-3 flex items-start justify-between gap-4 rounded-2xl border border-(--danger)/15 bg-(--danger)/6 px-4 py-3 text-sm text-(--danger)">
+                  <div className="mb-3 flex items-start justify-between gap-4 rounded-xl border border-(--danger)/18 bg-[#f8ebe8] px-4 py-3 text-sm text-(--danger)" role="alert">
                     <span>{error}</span>
                     {failedTurn && (
                       <button
@@ -1242,7 +1277,7 @@ function ChatClient({
                 )}
                 <form
                   onSubmit={handleSubmit}
-                  className="flex items-end gap-2 rounded-[27px] border border-black/8 bg-white p-2 pl-4 shadow-[0_18px_55px_rgba(46,38,28,0.09)] focus-within:border-black/14"
+                  className="flex items-end gap-2 rounded-[15px] border border-black/12 bg-white p-1.5 pl-4 shadow-[0_6px_20px_rgba(21,21,18,0.05)] transition focus-within:border-black/28"
                 >
                   <textarea
                     ref={textareaRef}
@@ -1254,7 +1289,7 @@ function ChatClient({
                     onKeyDown={handleKeyDown}
                     rows={1}
                     aria-label="Message Dot"
-                    placeholder={conversationKind === "group" ? "message the group… mention dot for help" : "message dot…"}
+                    placeholder={conversationKind === "group" ? "message the group…" : "message dot…"}
                     disabled={isSending || isConnecting}
                     className="max-h-36 min-h-11 flex-1 resize-none bg-transparent py-2.5 text-[15px] leading-6 outline-none placeholder:text-black/28 disabled:opacity-60"
                   />
@@ -1262,15 +1297,15 @@ function ChatClient({
                     type="submit"
                     disabled={!draft.trim() || isSending || isConnecting}
                     aria-label="Send message"
-                    className="grid size-11 shrink-0 place-items-center rounded-full bg-(--coral) text-lg font-medium text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-30"
+                    className="grid size-11 shrink-0 place-items-center rounded-[11px] bg-foreground text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-25"
                   >
-                    <span aria-hidden="true">↑</span>
+                    <ArrowUp className="size-4" aria-hidden="true" />
                   </button>
                 </form>
                 <p className="mt-2.5 text-center text-[10px] text-black/28">
                   {conversationKind === "group"
-                    ? "dot joins when mentioned · everyone here can see group replies"
-                    : "same dot, different channel · double-check anything important"}
+                    ? "dot jumps in when useful · everyone here can see group replies"
+                    : "same conversation, different channel · double-check anything important"}
                 </p>
               </div>
             </div>
@@ -1280,7 +1315,7 @@ function ChatClient({
       </div>
       {showGroupCreator && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-black/20 px-5 backdrop-blur-sm"
+          className="fixed inset-0 z-50 grid place-items-center bg-black/24 px-5"
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setShowGroupCreator(false);
@@ -1288,30 +1323,36 @@ function ChatClient({
         >
           <form
             onSubmit={handleCreateGroup}
-            className="w-full max-w-md rounded-[30px] border border-black/8 bg-(--paper) p-6 shadow-[0_28px_90px_rgba(39,35,31,0.2)] sm:p-8"
+            className="w-full max-w-md rounded-[18px] border border-black/12 bg-background p-6 shadow-[0_24px_70px_rgba(21,21,18,0.18)] sm:p-8"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="group-creator-title"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setShowGroupCreator(false);
+            }}
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-(--sage)">
+                <Eyebrow className="text-(--sage)">
                   new group
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em]">
+                </Eyebrow>
+                <h2 id="group-creator-title" className="mt-2 text-2xl font-medium tracking-[-0.04em]">
                   bring people together
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setShowGroupCreator(false)}
-                className="grid size-9 place-items-center rounded-full bg-white/70 text-black/42 ring-1 ring-black/7"
+                className="grid size-9 place-items-center rounded-[10px] border border-black/10 bg-white text-black/42 transition hover:text-black"
                 aria-label="Close"
               >
-                ×
+                <X className="size-4" />
               </button>
             </div>
             <p className="mt-3 text-sm leading-6 text-black/48">
               name it now, then share a private invite link with anyone who already uses dot.
             </p>
-            <label htmlFor="group-name" className="mt-6 block text-sm font-medium text-black/68">
+            <label htmlFor="group-name" className="mt-6 block text-xs font-medium text-black/62">
               group name
             </label>
             <input
@@ -1320,15 +1361,16 @@ function ChatClient({
               onChange={(event) => setGroupName(event.target.value.slice(0, 120))}
               autoFocus
               placeholder="safari crew"
-              className="mt-2 h-13 w-full rounded-2xl border border-black/9 bg-white/72 px-4 outline-none transition focus:border-(--sage)/45 focus:ring-4 focus:ring-(--sage)/10"
+              className="mt-2 h-13 w-full rounded-[11px] border border-black/12 bg-white px-4 outline-none transition focus:border-black/30"
             />
-            <button
+            <Button
               type="submit"
+              size="lg"
               disabled={!groupName.trim() || isCreatingGroup}
-              className="mt-4 h-13 w-full rounded-2xl bg-foreground text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-35"
+              className="mt-4 w-full"
             >
               {isCreatingGroup ? "creating…" : "create group"}
-            </button>
+            </Button>
           </form>
         </div>
       )}

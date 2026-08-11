@@ -91,7 +91,7 @@ export type GeneratedAppSummary = {
   public_id: string;
   title: string;
   description: string;
-  template: "budget" | "expense_splitter" | "metric_tracker" | "checklist";
+  template: "budget" | "expense_splitter" | "metric_tracker" | "checklist" | "workspace";
   theme: "coral" | "sage" | "ocean" | "plum" | "gold";
   access_mode: "private_link" | "collaborative_link";
   app_url: string;
@@ -99,8 +99,25 @@ export type GeneratedAppSummary = {
   updated_at: string;
 };
 
+export type GeneratedAppModule = {
+  id: string;
+  type:
+    | "overview"
+    | "todos"
+    | "guest_list"
+    | "itinerary"
+    | "expenses"
+    | "metric"
+    | "notes"
+    | "collection";
+  title: string;
+  description: string;
+  settings: Record<string, unknown>;
+};
+
 export type GeneratedAppRecord = {
   id: string;
+  module_id?: string | null;
   kind: string;
   actor_name: string | null;
   data: Record<string, unknown>;
@@ -115,6 +132,7 @@ export type GeneratedAppDetail = GeneratedAppSummary & {
     theme: GeneratedAppSummary["theme"];
     settings: Record<string, unknown>;
     capabilities: string[];
+    modules?: GeneratedAppModule[];
   };
   records: GeneratedAppRecord[];
 };
@@ -356,6 +374,7 @@ export function loadPublicGeneratedApp(publicId: string): Promise<GeneratedAppDe
 
 export function addGeneratedAppRecord(input: {
   publicId: string;
+  moduleId?: string;
   kind: string;
   data: Record<string, unknown>;
   actorName?: string;
@@ -365,6 +384,7 @@ export function addGeneratedAppRecord(input: {
     {
       method: "POST",
       body: JSON.stringify({
+        module_id: input.moduleId,
         kind: input.kind,
         data: input.data,
         actor_name: input.actorName,

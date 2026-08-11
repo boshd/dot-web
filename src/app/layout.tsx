@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dot — chat naturally",
-  description: "Talk with Dot, your personal AI companion, from any channel.",
+  title: "Dot — one conversation",
+  description: "Talk with Dot, connect your digital life, and turn a text into action.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

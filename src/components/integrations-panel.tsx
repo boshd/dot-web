@@ -26,6 +26,13 @@ import {
   loadIntegrationCatalog,
   reconnectPlaidConnection,
 } from "@/lib/api";
+import {
+  Button,
+  Eyebrow,
+  LoadingState,
+  Notice,
+  PageIntro,
+} from "@/components/dot-ui";
 
 type PlaidMetadata = {
   institution?: { institution_id?: string; name?: string } | null;
@@ -259,67 +266,52 @@ export function IntegrationsPanel({ phoneNumber, getAuthToken }: IntegrationsPan
   const comingSoon = integrations.filter((item) => item.availability === "coming_soon");
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
+    <div className="dot-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-7 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
       <Script
         src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"
         strategy="afterInteractive"
         onReady={() => setPlaidReady(true)}
         onError={() => setError("The secure bank connection window couldn’t load.")}
       />
-      <div className="mx-auto max-w-5xl">
-        <div className="flex items-end justify-between gap-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-(--coral)">
-              your digital life
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] sm:text-5xl">
-              integrations
-            </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-black/48 sm:text-[15px]">
-              Connect the accounts you want Dot to understand and help with. Add as many
-              Google accounts as you use.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={isLoading}
-            aria-label="Refresh integrations"
-            className="grid size-10 shrink-0 place-items-center rounded-full border border-black/8 bg-white/65 text-black/42 transition hover:bg-white disabled:opacity-40"
-          >
-            <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
-          </button>
-        </div>
+      <div className="dot-enter mx-auto max-w-6xl">
+        <PageIntro
+          eyebrow="connected context"
+          title="Integrations"
+          description="Bring the parts of your digital life you want Dot to understand. You stay in control of every connection."
+          action={
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => void load()}
+              disabled={isLoading}
+              aria-label="Refresh integrations"
+              title="Refresh integrations"
+            >
+              <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+          }
+        />
 
         {callbackNotice && (
-          <div
-            className={`mt-7 rounded-2xl border px-4 py-3 text-sm ${
-              callbackNotice.kind === "success"
-                ? "border-(--sage)/25 bg-(--sage)/10 text-black/62"
-                : "border-(--danger)/15 bg-(--danger)/6 text-(--danger)"
-            }`}
+          <Notice
+            tone={callbackNotice.kind === "success" ? "success" : "danger"}
+            className="mt-6"
           >
             {callbackNotice.text}
-          </div>
+          </Notice>
         )}
         {notice && (
-          <div className="mt-7 rounded-2xl border border-(--sage)/25 bg-(--sage)/10 px-4 py-3 text-sm text-black/62">
-            {notice}
-          </div>
+          <Notice tone="success" className="mt-6">{notice}</Notice>
         )}
         {error && (
-          <div className="mt-7 rounded-2xl border border-(--danger)/15 bg-(--danger)/6 px-4 py-3 text-sm text-(--danger)">
-            {error}
-          </div>
+          <Notice tone="danger" className="mt-6">{error}</Notice>
         )}
 
         {isLoading && integrations.length === 0 ? (
-          <div className="grid min-h-72 place-items-center">
-            <LoaderCircle className="size-6 animate-spin text-(--coral)" />
-          </div>
+          <LoadingState label="loading your connections" />
         ) : (
           <>
-            <div className="mt-8 grid gap-4 md:grid-cols-2">
+            <div className="mt-7 grid gap-3 md:grid-cols-2">
               {available.map((integration) => (
                 <IntegrationCard
                   key={integration.key}
@@ -334,16 +326,14 @@ export function IntegrationsPanel({ phoneNumber, getAuthToken }: IntegrationsPan
               ))}
             </div>
 
-            <div className="mt-12">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/34">
-                coming soon
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <section className="mt-12 border-t border-black/10 pt-7 sm:mt-16 sm:pt-9">
+              <Eyebrow>coming soon</Eyebrow>
+              <div className="mt-5 grid gap-px overflow-hidden rounded-[15px] border border-black/10 bg-black/10 sm:grid-cols-2 lg:grid-cols-3">
                 {comingSoon.map((integration) => (
                   <ComingSoonCard key={integration.key} integration={integration} />
                 ))}
               </div>
-            </div>
+            </section>
           </>
         )}
       </div>
@@ -367,30 +357,30 @@ function IntegrationCard({
   const Icon = iconByKey[integration.key as keyof typeof iconByKey] ?? ArrowUpRight;
   const isConnected = integration.connections.length > 0;
   return (
-    <article className="flex min-h-64 flex-col rounded-[28px] border border-black/7 bg-white/72 p-5 shadow-[0_12px_42px_rgba(45,37,28,0.045)] sm:p-6">
+    <article className="flex min-h-64 flex-col rounded-[16px] border border-black/10 bg-white p-5 transition hover:border-black/16 sm:p-6">
       <div className="flex items-start justify-between gap-4">
-        <div className="grid size-12 place-items-center rounded-2xl bg-foreground text-white">
-          <Icon className="size-5" />
+        <div className="grid size-9 place-items-center rounded-[10px] bg-foreground text-white">
+          <Icon className="size-4" strokeWidth={1.8} />
         </div>
         {isConnected && (
-          <span className="flex items-center gap-1.5 rounded-full bg-(--sage)/12 px-3 py-1.5 text-[11px] font-semibold text-black/54">
-            <Check className="size-3.5" /> connected
+          <span className="flex items-center gap-1.5 rounded-full border border-(--sage)/18 bg-(--sage-soft) px-2.5 py-1 text-[10px] font-medium text-black/55">
+            <Check className="size-3" /> connected
           </span>
         )}
       </div>
-      <h2 className="mt-5 text-xl font-semibold tracking-tight">{integration.name}</h2>
-      <p className="mt-2 text-sm leading-6 text-black/48">{integration.description}</p>
+      <h2 className="mt-7 text-xl font-medium tracking-[-0.03em]">{integration.name}</h2>
+      <p className="mt-2 text-sm leading-6 text-muted">{integration.description}</p>
 
       {isConnected && (
-        <div className="mt-5 space-y-2">
+        <div className="mt-5 divide-y divide-black/8 overflow-hidden rounded-xl border border-black/8">
           {integration.connections.map((connection) => (
             <div
               key={connection.account_id}
-              className="flex items-center justify-between gap-3 rounded-2xl bg-(--paper) px-3.5 py-3"
+              className="flex items-center justify-between gap-3 bg-[#fafaf7] px-3.5 py-3"
             >
               <div className="min-w-0">
-                <p className="truncate text-xs font-semibold text-black/68">{connection.label}</p>
-                <p className="mt-0.5 text-[10px] text-black/36">
+                <p className="truncate text-xs font-medium text-black/68">{connection.label}</p>
+                <p className="mt-0.5 text-[10px] text-black/38">
                   {integration.key === "plaid"
                     ? connection.subscription_status === "idle"
                       ? `${connection.account_count} account${connection.account_count === 1 ? "" : "s"} · synced`
@@ -405,7 +395,7 @@ function IntegrationCard({
                   <button
                     type="button"
                     onClick={() => onReconnect(connection.account_id)}
-                    className="rounded-full bg-(--coral)/10 px-2.5 py-1 text-[10px] font-semibold text-(--coral)"
+                    className="rounded-full bg-(--coral-soft) px-2.5 py-1 text-[10px] font-medium text-(--danger)"
                   >
                     reconnect
                   </button>
@@ -416,7 +406,7 @@ function IntegrationCard({
                   <button
                     type="button"
                     onClick={() => onDisconnect(connection.account_id, connection.label)}
-                    className="text-[10px] font-medium text-black/32 hover:text-(--danger)"
+                    className="text-[10px] font-medium text-black/38 transition hover:text-(--danger)"
                   >
                     disconnect
                   </button>
@@ -427,11 +417,11 @@ function IntegrationCard({
         </div>
       )}
 
-      <button
-        type="button"
+      <Button
+        variant="secondary"
         onClick={onConnect}
         disabled={isConnecting}
-        className="mt-auto flex h-11 items-center justify-center gap-2 rounded-2xl border border-black/9 bg-white px-4 text-xs font-semibold text-black/62 transition hover:border-black/15 hover:text-black disabled:opacity-45"
+        className="mt-auto w-full"
       >
         {isConnecting ? (
           <LoaderCircle className="size-4 animate-spin" />
@@ -439,7 +429,7 @@ function IntegrationCard({
           <ArrowUpRight className="size-4" />
         )}
         {isConnected ? "connect another account" : "connect"}
-      </button>
+      </Button>
     </article>
   );
 }
@@ -447,17 +437,17 @@ function IntegrationCard({
 function ComingSoonCard({ integration }: { integration: IntegrationCatalogItem }) {
   const Icon = iconByKey[integration.key as keyof typeof iconByKey] ?? ArrowUpRight;
   return (
-    <article className="rounded-[24px] border border-black/6 bg-white/42 p-5 opacity-70">
+    <article className="bg-white p-5">
       <div className="flex items-center gap-3">
-        <div className="grid size-9 place-items-center rounded-xl bg-black/5 text-black/42">
-          <Icon className="size-4" />
+        <div className="grid size-8 place-items-center rounded-[9px] border border-black/8 bg-[#fafaf7] text-black/42">
+          <Icon className="size-3.5" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold">{integration.name}</h3>
-          <p className="mt-0.5 text-[10px] uppercase tracking-[0.12em] text-black/32">soon</p>
+          <h3 className="text-sm font-medium">{integration.name}</h3>
+          <p className="mt-0.5 text-[9px] uppercase tracking-[0.14em] text-black/32">soon</p>
         </div>
       </div>
-      <p className="mt-4 text-xs leading-5 text-black/42">{integration.description}</p>
+      <p className="mt-4 text-xs leading-5 text-muted">{integration.description}</p>
     </article>
   );
 }

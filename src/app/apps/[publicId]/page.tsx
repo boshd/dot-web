@@ -42,5 +42,6 @@ export async function generateMetadata({ params }: AppPageProps): Promise<Metada
 
 export default async function GeneratedAppPage({ params }: AppPageProps) {
   const { publicId } = await params;
-  return <GeneratedAppSurface publicId={publicId} />;
+  const app = await appMetadata(publicId);
+  return <GeneratedAppSurface publicId={publicId} initialApp={app} />;
 }

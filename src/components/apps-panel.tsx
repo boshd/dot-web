@@ -4,7 +4,6 @@ import {
   ArrowUpRight,
   CheckSquare2,
   CircleDollarSign,
-  LoaderCircle,
   RefreshCw,
   Scale,
   Sparkles,
@@ -18,6 +17,14 @@ import {
   GeneratedAppSummary,
   loadGeneratedApps,
 } from "@/lib/api";
+import {
+  Button,
+  Eyebrow,
+  LoadingState,
+  Notice,
+  PageIntro,
+  Surface,
+} from "@/components/dot-ui";
 
 type AppsPanelProps = {
   phoneNumber?: string;
@@ -30,6 +37,7 @@ const appIcon = {
   expense_splitter: UsersRound,
   metric_tracker: Scale,
   checklist: CheckSquare2,
+  workspace: Sparkles,
 };
 
 const starters = [
@@ -70,105 +78,100 @@ export function AppsPanel({ phoneNumber, getAuthToken, onCreate }: AppsPanelProp
   }, [load]);
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-7 sm:px-7 lg:px-10 lg:py-10">
-      <div className="mx-auto max-w-5xl">
-        <div className="flex items-end justify-between gap-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-(--coral)">
-              made for you
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] sm:text-5xl">
-              your apps
-            </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-black/48 sm:text-[15px]">
-              Tiny tools Dot makes when a conversation needs more than text. They work on any
-              phone and keep their data between visits.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={isLoading}
-            aria-label="Refresh apps"
-            className="grid size-10 shrink-0 place-items-center rounded-full border border-black/8 bg-white/65 text-black/42 transition hover:bg-white disabled:opacity-40"
-          >
-            <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
-          </button>
-        </div>
+    <div className="dot-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-7 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
+      <div className="dot-enter mx-auto max-w-6xl">
+        <PageIntro
+          eyebrow="made in conversation"
+          title="Your apps"
+          description="Small, useful tools Dot makes around your life. No setup maze, no new software to learn."
+          action={
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => void load()}
+              disabled={isLoading}
+              aria-label="Refresh apps"
+              title="Refresh apps"
+            >
+              <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
+            </Button>
+          }
+        />
 
         {error && (
-          <div className="mt-7 rounded-2xl border border-(--danger)/15 bg-(--danger)/6 px-4 py-3 text-sm text-(--danger)">
-            {error}
-          </div>
+          <Notice tone="danger" className="mt-6">{error}</Notice>
         )}
 
         {isLoading && apps.length === 0 ? (
-          <div className="grid min-h-72 place-items-center">
-            <LoaderCircle className="size-6 animate-spin text-(--coral)" />
-          </div>
+          <LoadingState label="loading your apps" />
         ) : apps.length ? (
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <div className="mt-7 grid gap-3 md:grid-cols-2">
             {apps.map((app) => (
               <AppCard key={app.id} app={app} />
             ))}
           </div>
         ) : (
-          <div className="mt-8 rounded-[30px] border border-black/7 bg-white/65 p-6 sm:p-8">
-            <div className="grid size-12 place-items-center rounded-2xl bg-foreground text-white">
-              <Sparkles className="size-5" />
+          <Surface className="mt-7 grid min-h-64 gap-8 p-6 sm:grid-cols-[1fr_auto] sm:items-end sm:p-8">
+            <div>
+              <Sparkles className="size-5 text-(--coral)" strokeWidth={1.7} />
+              <h2 className="mt-16 max-w-md text-3xl font-normal leading-[1.02] tracking-[-0.045em]">
+                Start with a sentence, not a template.
+              </h2>
+              <p className="mt-3 max-w-lg text-sm leading-6 text-muted">
+                Tell Dot what would make life easier. It will shape the tool and send you the link.
+              </p>
             </div>
-            <h2 className="mt-5 text-2xl font-semibold tracking-tight">
-              ask dot to make one
-            </h2>
-            <p className="mt-2 max-w-lg text-sm leading-6 text-black/48">
-              Describe what you want in chat. Dot will pick the useful shape, create it, and
-              give you a link.
-            </p>
-          </div>
+            <Button onClick={() => onCreate("make me a simple app for something i need")}>ask dot</Button>
+          </Surface>
         )}
 
-        <div className="mt-10">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/34">
-            quick starts
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2.5">
+        <section className="mt-12 border-t border-black/10 pt-7 sm:mt-16 sm:pt-9">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <Eyebrow>quick starts</Eyebrow>
+              <h2 className="mt-2 text-xl font-normal tracking-[-0.03em]">A few things Dot can make</h2>
+            </div>
+            <span className="hidden text-xs text-black/35 sm:block">opens in chat</span>
+          </div>
+          <div className="mt-5 grid gap-px overflow-hidden rounded-[15px] border border-black/10 bg-black/10 sm:grid-cols-2">
             {starters.map((starter) => (
               <button
                 key={starter.label}
                 type="button"
                 onClick={() => onCreate(starter.prompt)}
-                className="rounded-full border border-black/8 bg-white/70 px-4 py-2.5 text-xs font-semibold text-black/58 transition hover:-translate-y-0.5 hover:border-(--coral)/25 hover:bg-white hover:text-black"
+                className="group flex min-h-16 items-center justify-between bg-white px-4 py-3 text-left text-sm text-muted transition hover:bg-[#fbfbf8] hover:text-black sm:px-5"
               >
-                {starter.label}
+                <span>{starter.label}</span>
+                <ArrowUpRight className="size-4 text-black/25 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-black/55" />
               </button>
             ))}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );
 }
 
 function AppCard({ app }: { app: GeneratedAppSummary }) {
-  const Icon = appIcon[app.template];
+  const Icon = appIcon[app.template as keyof typeof appIcon] ?? Sparkles;
   return (
     <a
       href={app.app_url}
       target="_blank"
       rel="noreferrer"
-      className="group flex min-h-58 flex-col rounded-[28px] border border-black/7 bg-white/72 p-5 shadow-[0_12px_42px_rgba(45,37,28,0.045)] transition hover:-translate-y-0.5 hover:border-black/12 hover:bg-white sm:p-6"
+      className="group flex min-h-56 flex-col rounded-[16px] border border-black/10 bg-white p-5 transition hover:-translate-y-0.5 hover:border-black/20 hover:shadow-[var(--shadow-float)] sm:p-6"
     >
       <div className="flex items-start justify-between gap-4">
-        <div className={`app-accent-${app.theme} grid size-12 place-items-center rounded-2xl text-white`}>
-          <Icon className="size-5" />
+        <div className={`app-accent-${app.theme} grid size-9 place-items-center rounded-[10px] text-white`}>
+          <Icon className="size-4" strokeWidth={1.8} />
         </div>
-        <ArrowUpRight className="size-4 text-black/26 transition group-hover:text-black/55" />
+        <ArrowUpRight className="size-4 text-black/24 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-black/60" />
       </div>
-      <h2 className="mt-5 text-xl font-semibold tracking-tight">{app.title}</h2>
-      <p className="mt-2 line-clamp-2 text-sm leading-6 text-black/48">
+      <h2 className="mt-7 text-xl font-medium tracking-[-0.03em]">{app.title}</h2>
+      <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted">
         {app.description || "A personal app made by Dot."}
       </p>
-      <div className="mt-auto flex items-center justify-between pt-6 text-[11px] text-black/35">
+      <div className="mt-auto flex items-center justify-between border-t border-black/8 pt-4 text-[10px] uppercase tracking-[0.09em] text-black/34">
         <span>{app.template.replaceAll("_", " ")}</span>
         <span>{app.access_mode === "collaborative_link" ? "shareable" : "private link"}</span>
       </div>

@@ -1,11 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #f7f4ee;
-  --ink: #27231f;
-  --coral: #ed6552;
-  --sage: #6f9876;
-  --danger: #b44338;
+  --paper: #f6f6f2;
+  --surface: #ffffff;
+  --surface-subtle: #efefea;
+  --ink: #151512;
+  --muted: #696963;
+  --line: rgb(21 21 18 / 10%);
+  --line-strong: rgb(21 21 18 / 18%);
+  --coral: #e65f45;
+  --coral-soft: #fae7e1;
+  --sage: #647e68;
+  --sage-soft: #e6ece6;
+  --danger: #ad3f34;
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.125rem;
+  --shadow-float: 0 1px 2px rgb(21 21 18 / 4%), 0 14px 40px rgb(21 21 18 / 6%);
 }
 
 .app-accent-coral { background: #df654f; }
@@ -14,49 +25,11 @@
 .app-accent-plum { background: #7d5a82; }
 .app-accent-gold { background: #a87827; }
 
-.generated-app-shell {
-  --app-accent: #df654f;
-  --app-soft: #f4e3df;
-  background:
-    radial-gradient(circle at 88% 4%, color-mix(in srgb, var(--app-accent) 14%, transparent), transparent 27rem),
-    #f6f1e9;
-  color: #2f2923;
-}
-
-.generated-app-shell.theme-sage { --app-accent: #63846d; --app-soft: #e5ece6; }
-.generated-app-shell.theme-ocean { --app-accent: #397a91; --app-soft: #e0edf0; }
-.generated-app-shell.theme-plum { --app-accent: #7d5a82; --app-soft: #ece4ed; }
-.generated-app-shell.theme-gold { --app-accent: #a87827; --app-soft: #f1e8d7; }
-
-.app-input {
-  height: 3rem;
-  border: 1px solid rgb(0 0 0 / 8%);
-  border-radius: 1rem;
-  background: rgb(255 255 255 / 78%);
-  padding: 0 0.9rem;
-  color: #2f2923;
-  outline: none;
-  transition: border-color 150ms, box-shadow 150ms;
-}
-
-.app-input:focus {
-  border-color: color-mix(in srgb, var(--app-accent) 55%, transparent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--app-accent) 10%, transparent);
-}
-
-.app-primary {
-  background: var(--app-accent);
-  color: white;
-  transition: filter 150ms, transform 150ms;
-}
-
-.app-primary:hover { filter: brightness(0.94); }
-.app-primary:active { transform: scale(0.98); }
-.app-primary:disabled { cursor: not-allowed; opacity: 0.45; }
-
 @theme inline {
   --color-background: var(--paper);
   --color-foreground: var(--ink);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -67,15 +40,15 @@
 
 html {
   background: var(--paper);
+  color-scheme: light;
 }
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at 86% 12%, rgba(237, 101, 82, 0.07), transparent 24rem),
-    var(--paper);
+  background: var(--paper);
   color: var(--ink);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
 }
 
 button,
@@ -88,17 +61,34 @@ button {
   cursor: pointer;
 }
 
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 ::selection {
   background: rgba(237, 101, 82, 0.2);
 }
 
 .identity-glow {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 25% 18%, rgba(111, 152, 118, 0.13), transparent 25rem),
-    radial-gradient(circle at 78% 72%, rgba(237, 101, 82, 0.12), transparent 29rem);
+  display: none;
+}
+
+.dot-scrollbar {
+  scrollbar-color: rgb(21 21 18 / 18%) transparent;
+  scrollbar-width: thin;
+}
+
+.dot-enter {
+  animation: dot-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .typing-dot {
@@ -128,6 +118,18 @@ button {
   30% {
     transform: translateY(-0.2rem);
     opacity: 1;
+  }
+}
+
+@keyframes dot-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

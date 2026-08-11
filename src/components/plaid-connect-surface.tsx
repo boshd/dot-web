@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Landmark, LoaderCircle, RotateCcw } from "lucide-react";
+import { Check, Landmark, LoaderCircle, LockKeyhole, RotateCcw } from "lucide-react";
 import Script from "next/script";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -10,6 +10,7 @@ import {
   exchangePlaidToken,
   IntegrationConnect,
 } from "@/lib/api";
+import { Button, DotBrand, Eyebrow, Surface } from "@/components/dot-ui";
 
 type PlaidMetadata = {
   institution?: { institution_id?: string; name?: string } | null;
@@ -133,7 +134,7 @@ export function PlaidConnectSurface() {
       token: connection.link_token,
       onSuccess: (publicToken, metadata) => {
         setStatus("exchanging");
-        setMessage("bank connected — finishing the secure handoff to Dot…");
+        setMessage("bank connected. finishing the secure handoff to Dot…");
         void exchangePlaidToken({
           publicToken,
           exchangeToken: connection.exchange_token ?? "",
@@ -195,7 +196,7 @@ export function PlaidConnectSurface() {
     status === "exchanging";
 
   return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden px-5 py-10">
+    <main className="relative min-h-dvh overflow-x-hidden bg-background px-5 py-6 text-foreground sm:px-8 sm:py-8">
       <Script
         src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"
         strategy="afterInteractive"
@@ -205,54 +206,80 @@ export function PlaidConnectSurface() {
           setMessage("Plaid’s secure window couldn’t load. check your connection and try again.");
         }}
       />
-      <div className="identity-glow" />
-      <section className="relative w-full max-w-md rounded-[32px] border border-black/7 bg-white/80 p-7 text-center shadow-[0_24px_90px_rgba(45,37,28,0.10)] backdrop-blur sm:p-9">
-        <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-foreground text-white shadow-sm">
-          {status === "connected" ? <Check className="size-6" /> : <Landmark className="size-6" />}
-        </div>
-        <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-(--coral)">
-          Dot + Plaid
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">connect your bank</h1>
-        <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-black/48">{message}</p>
+      <DotBrand />
 
-        {canOpen && (
-          <button
-            type="button"
-            onClick={openPlaid}
-            className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-foreground px-5 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.99]"
-          >
-            {status === "cancelled" ? (
-              <RotateCcw className="size-4" />
-            ) : (
-              <Landmark className="size-4" />
-            )}
-            {status === "cancelled" ? "try again" : "open secure connection"}
-          </button>
-        )}
-
-        {canRetryConnect && (
-          <button
-            type="button"
-            onClick={() => {
-              if (connectTokenRef.current) requestPlaidSession(connectTokenRef.current);
-            }}
-            className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-foreground px-5 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.99]"
-          >
-            <RotateCcw className="size-4" /> try again
-          </button>
-        )}
-
-        {isBusy && !canOpen && (
-          <div className="mt-7 flex h-12 items-center justify-center gap-2 text-sm font-medium text-black/44">
-            <LoaderCircle className="size-4 animate-spin" /> one sec
+      <section className="dot-enter mx-auto grid min-h-[calc(100dvh-5rem)] w-full max-w-5xl items-center gap-10 py-12 md:grid-cols-[1.1fr_0.9fr] md:gap-20">
+        <div>
+          <Eyebrow>Dot + Plaid</Eyebrow>
+          <h1 className="mt-4 max-w-xl text-[3.2rem] font-normal leading-[0.94] tracking-[-0.06em] sm:text-[4.6rem]">
+            Bring your money into the conversation.
+          </h1>
+          <p className="mt-6 max-w-md text-[15px] leading-7 text-muted">
+            Connect a supported bank so Dot can help you understand spending, cash flow, and goals
+            from the actual numbers.
+          </p>
+          <div className="mt-9 flex max-w-md items-start gap-3 border-t border-black/10 pt-5 text-xs leading-5 text-muted">
+            <LockKeyhole className="mt-0.5 size-4 shrink-0 text-black/65" strokeWidth={1.8} />
+            <p>Your bank login goes directly to Plaid. Dot never sees or stores your credentials.</p>
           </div>
-        )}
+        </div>
 
-        <p className="mt-7 text-[11px] leading-5 text-black/34">
-          Your bank login goes directly to Plaid, not Dot. This single-use link only connects the
-          Dot account that requested it.
-        </p>
+        <Surface className="p-5 shadow-[var(--shadow-float)] sm:p-6">
+          <div className="flex items-start justify-between gap-4 border-b border-black/9 pb-5">
+            <div className="grid size-10 place-items-center rounded-[11px] bg-foreground text-white">
+              {status === "connected" ? (
+                <Check className="size-4.5" />
+              ) : (
+                <Landmark className="size-4.5" strokeWidth={1.8} />
+              )}
+            </div>
+            <span className="rounded-full border border-black/9 bg-[#fafaf7] px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.12em] text-black/42">
+              single-use link
+            </span>
+          </div>
+
+          <div className="py-7">
+            <h2 className="text-2xl font-medium tracking-[-0.04em]">
+              {status === "connected" ? "You’re connected" : "Connect your bank"}
+            </h2>
+            <p className="mt-3 min-h-12 text-sm leading-6 text-muted" aria-live="polite">
+              {message}
+            </p>
+          </div>
+
+          {canOpen && (
+            <Button size="lg" onClick={openPlaid} className="w-full">
+              {status === "cancelled" ? (
+                <RotateCcw className="size-4" />
+              ) : (
+                <Landmark className="size-4" />
+              )}
+              {status === "cancelled" ? "try again" : "open secure connection"}
+            </Button>
+          )}
+
+          {canRetryConnect && (
+            <Button
+              size="lg"
+              onClick={() => {
+                if (connectTokenRef.current) requestPlaidSession(connectTokenRef.current);
+              }}
+              className="w-full"
+            >
+              <RotateCcw className="size-4" /> try again
+            </Button>
+          )}
+
+          {isBusy && !canOpen && (
+            <div className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#f4f4ef] text-sm text-black/48" role="status">
+              <LoaderCircle className="size-4 animate-spin" /> one sec
+            </div>
+          )}
+
+          <p className="mt-4 text-center text-[10px] leading-4 text-black/35">
+            This link only connects the Dot account that requested it.
+          </p>
+        </Surface>
       </section>
     </main>
   );
