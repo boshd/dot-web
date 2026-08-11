@@ -54,25 +54,15 @@ export function PlaidConnectSurface() {
   const [plaidReady, setPlaidReady] = useState(false);
   const [status, setStatus] = useState<FlowStatus>("starting");
   const [message, setMessage] = useState("preparing your secure bank connection…");
+  const [retryableConnect, setRetryableConnect] = useState(false);
   const lastConnectToken = useRef<string | undefined>(undefined);
+  const connectTokenRef = useRef<string | undefined>(undefined);
   const connectAttempt = useRef(0);
   const autoOpened = useRef(false);
   const handlerRef = useRef<PlaidHandler | undefined>(undefined);
 
-  const startFromPrivateLink = useCallback(() => {
-    const token = takePrivateToken();
-    if (!token) {
-      if (lastConnectToken.current) return;
-      queueMicrotask(() => {
-        setStatus("error");
-        setMessage(
-          "this private link is missing or has already been used. ask Dot for a fresh one.",
-        );
-      });
-      return;
-    }
-    if (token === lastConnectToken.current) return;
-    lastConnectToken.current = token;
+  const requestPlaidSession = useCallback((token: string) => {
+    connectTokenRef.current = token;
     const attempt = ++connectAttempt.current;
     autoOpened.current = false;
     handlerRef.current?.destroy();
@@ -80,6 +70,7 @@ export function PlaidConnectSurface() {
     queueMicrotask(() => {
       if (connectAttempt.current !== attempt) return;
       setConnection(undefined);
+      setRetryableConnect(false);
       setStatus("starting");
       setMessage("preparing your secure bank connection…");
     });
@@ -91,11 +82,13 @@ export function PlaidConnectSurface() {
           throw new Error("Plaid did not return a connection session");
         }
         setConnection(result);
+        setRetryableConnect(false);
         setStatus("ready");
         setMessage("your secure connection is ready.");
       })
       .catch((error) => {
         if (connectAttempt.current !== attempt) return;
+        setRetryableConnect(error instanceof BenjiApiError && error.status >= 500);
         setStatus("error");
         setMessage(
           error instanceof BenjiApiError
@@ -104,6 +97,24 @@ export function PlaidConnectSurface() {
         );
       });
   }, []);
+
+  const startFromPrivateLink = useCallback(() => {
+    const token = takePrivateToken();
+    if (!token) {
+      if (lastConnectToken.current) return;
+      queueMicrotask(() => {
+        setRetryableConnect(false);
+        setStatus("error");
+        setMessage(
+          "this private link is missing or has already been used. ask Dot for a fresh one.",
+        );
+      });
+      return;
+    }
+    if (token === lastConnectToken.current) return;
+    lastConnectToken.current = token;
+    requestPlaidSession(token);
+  }, [requestPlaidSession]);
 
   useEffect(() => {
     startFromPrivateLink();
@@ -176,6 +187,7 @@ export function PlaidConnectSurface() {
     status !== "exchanging" &&
     status !== "connected" &&
     status !== "error";
+  const canRetryConnect = retryableConnect && connection === undefined && status === "error";
   const isBusy =
     status === "starting" ||
     status === "ready" ||
@@ -216,6 +228,18 @@ export function PlaidConnectSurface() {
               <Landmark className="size-4" />
             )}
             {status === "cancelled" ? "try again" : "open secure connection"}
+          </button>
+        )}
+
+        {canRetryConnect && (
+          <button
+            type="button"
+            onClick={() => {
+              if (connectTokenRef.current) requestPlaidSession(connectTokenRef.current);
+            }}
+            className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-foreground px-5 text-sm font-semibold text-white transition hover:opacity-90 active:scale-[0.99]"
+          >
+            <RotateCcw className="size-4" /> try again
           </button>
         )}
 
