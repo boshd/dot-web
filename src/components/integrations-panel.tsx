@@ -15,6 +15,7 @@ import Script from "next/script";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  AuthToken,
   BenjiApiError,
   connectIntegration,
   createPlaidLinkFromConnectToken,
@@ -49,7 +50,7 @@ declare global {
 
 type IntegrationsPanelProps = {
   phoneNumber?: string;
-  getAuthToken?: () => string | undefined;
+  getAuthToken?: () => AuthToken;
 };
 
 const iconByKey = {

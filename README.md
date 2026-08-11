@@ -26,14 +26,22 @@ before promoting a deployment. Configure these service variables:
 
 ```dotenv
 NEXT_PUBLIC_API_URL=https://api.example.com
-NEXT_PUBLIC_STYTCH_PUBLIC_TOKEN=public-token-test-or-live-...
-NEXT_PUBLIC_STYTCH_SESSION_DURATION_MINUTES=43200
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project
+NEXT_PUBLIC_FIREBASE_APP_ID=1:...:web:...
 BENJI_INTERNAL_API_URL=http://api.railway.internal:8000
 ```
 
 `NEXT_PUBLIC_*` values are frozen into the client during `yarn build`. Set them before the
 first deployment and redeploy the service after changing them. `BENJI_INTERNAL_API_URL` is
 server-only and should use the backend service's Railway private domain.
+
+The production UI signs in existing Dot users through Firebase Authentication. It accepts the
+same phone number or email address used to message Dot, checks that identity with the API before
+sending anything, then uses SMS OTP or a passwordless email link. Configure both providers and
+authorize the deployed web domain in Firebase. When Firebase is absent, the phone identity picker
+is available only in `next dev`; production fails closed.
 
 ## Checks
 

@@ -47,9 +47,10 @@ export type ConversationSummary = {
   members: ChatMember[];
 };
 
-export type PhoneAuthChallenge = {
-  method_id: string;
-  expires_in_seconds: number;
+export type AuthEligibility = {
+  eligible: true;
+  kind: "phone" | "email";
+  normalized_identifier: string;
 };
 
 export type IntegrationConnection = {
@@ -127,6 +128,8 @@ export class BenjiApiError extends Error {
   }
 }
 
+export type AuthToken = string | undefined | Promise<string | undefined>;
+
 function errorMessage(detail: unknown): string | undefined {
   if (typeof detail === "string") return detail;
   if (!Array.isArray(detail)) return undefined;
@@ -140,10 +143,11 @@ function errorMessage(detail: unknown): string | undefined {
 async function requestJson<T>(
   path: string,
   options: RequestInit = {},
-  authToken?: string,
+  authToken?: AuthToken,
 ): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  const resolvedAuthToken = await authToken;
+  if (resolvedAuthToken) headers.Authorization = `Bearer ${resolvedAuthToken}`;
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers,
@@ -161,7 +165,7 @@ async function requestJson<T>(
   return response.json() as Promise<T>;
 }
 
-async function request<T>(path: string, body: object, authToken?: string): Promise<T> {
+async function request<T>(path: string, body: object, authToken?: AuthToken): Promise<T> {
   return requestJson<T>(
     path,
     { method: "POST", body: JSON.stringify(body) },
@@ -171,7 +175,7 @@ async function request<T>(path: string, body: object, authToken?: string): Promi
 
 export function openChatSession(input: {
   phoneNumber?: string;
-  authToken?: string;
+  authToken?: AuthToken;
   conversationId?: string;
 }): Promise<ChatSession> {
   return request<ChatSession>(
@@ -186,7 +190,7 @@ export function openChatSession(input: {
 
 export function loadConversations(input: {
   phoneNumber?: string;
-  authToken?: string;
+  authToken?: AuthToken;
 }): Promise<{ conversations: ConversationSummary[] }> {
   const query = input.phoneNumber
     ? `?phone_number=${encodeURIComponent(input.phoneNumber)}`
@@ -201,7 +205,7 @@ export function loadConversations(input: {
 export function createGroup(input: {
   title: string;
   phoneNumber?: string;
-  authToken?: string;
+  authToken?: AuthToken;
 }): Promise<ConversationSummary> {
   return request<ConversationSummary>(
     "/api/v1/web/conversations/groups",
@@ -213,7 +217,7 @@ export function createGroup(input: {
 export function createGroupInvite(input: {
   conversationId: string;
   phoneNumber?: string;
-  authToken?: string;
+  authToken?: AuthToken;
 }): Promise<{ invite_url: string; expires_at: string }> {
   return request<{ invite_url: string; expires_at: string }>(
     `/api/v1/web/conversations/groups/${input.conversationId}/invites`,
@@ -225,7 +229,7 @@ export function createGroupInvite(input: {
 export function joinGroupInvite(input: {
   token: string;
   phoneNumber?: string;
-  authToken?: string;
+  authToken?: AuthToken;
 }): Promise<ConversationSummary> {
   return request<ConversationSummary>(
     "/api/v1/web/conversations/groups/join",
@@ -236,7 +240,7 @@ export function joinGroupInvite(input: {
 
 export function sendChatMessage(input: {
   phoneNumber?: string;
-  authToken?: string;
+  authToken?: AuthToken;
   conversationId: string;
   clientMessageId: string;
   content: string;
@@ -253,15 +257,15 @@ export function sendChatMessage(input: {
   );
 }
 
-export function startPhoneAuthentication(phoneNumber: string): Promise<PhoneAuthChallenge> {
-  return request<PhoneAuthChallenge>("/api/v1/auth/otp/start", {
-    phone_number: phoneNumber,
+export function checkAuthEligibility(identifier: string): Promise<AuthEligibility> {
+  return request<AuthEligibility>("/api/v1/auth/eligibility", {
+    identifier,
   });
 }
 
 export function loadIntegrationCatalog(input: {
   phoneNumber?: string;
-  authToken?: string;
+  authToken?: AuthToken;
 }): Promise<IntegrationCatalog> {
   return request<IntegrationCatalog>(
     "/api/v1/integrations/catalog",
@@ -273,7 +277,7 @@ export function loadIntegrationCatalog(input: {
 export function connectIntegration(input: {
   integrationKey: string;
   phoneNumber?: string;
-  authToken?: string;
+  authToken?: AuthToken;
 }): Promise<IntegrationConnect> {
   return request<IntegrationConnect>(
     `/api/v1/integrations/${input.integrationKey}/connect`,
@@ -294,7 +298,7 @@ export function createPlaidLinkFromConnectToken(
 export function reconnectPlaidConnection(input: {
   connectionId: string;
   phoneNumber?: string;
-  authToken?: string;
+  authToken?: AuthToken;
 }): Promise<IntegrationConnect> {
   return request<IntegrationConnect>(
     `/api/v1/integrations/plaid/${input.connectionId}/reconnect`,
@@ -306,7 +310,7 @@ export function reconnectPlaidConnection(input: {
 export function disconnectPlaidConnection(input: {
   connectionId: string;
   phoneNumber?: string;
-  authToken?: string;
+  authToken?: AuthToken;
 }): Promise<{ disconnected: boolean }> {
   return requestJson<{ disconnected: boolean }>(
     `/api/v1/integrations/plaid/${input.connectionId}`,
@@ -337,7 +341,7 @@ export function exchangePlaidToken(input: {
 
 export function loadGeneratedApps(input: {
   phoneNumber?: string;
-  authToken?: string;
+  authToken?: AuthToken;
 }): Promise<{ apps: GeneratedAppSummary[] }> {
   return request<{ apps: GeneratedAppSummary[] }>(
     "/api/v1/apps/catalog",

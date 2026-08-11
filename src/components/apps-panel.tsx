@@ -13,6 +13,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  AuthToken,
   BenjiApiError,
   GeneratedAppSummary,
   loadGeneratedApps,
@@ -20,7 +21,7 @@ import {
 
 type AppsPanelProps = {
   phoneNumber?: string;
-  getAuthToken?: () => string | undefined;
+  getAuthToken?: () => AuthToken;
   onCreate: (prompt: string) => void;
 };
 

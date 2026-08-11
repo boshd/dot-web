@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@stytch/nextjs": "^22.1.0",
+    "firebase": "^12.17.1",
     "lucide": "^1.31.0",
     "lucide-react": "^1.31.0",
     "metal-fx": "^1.0.4",

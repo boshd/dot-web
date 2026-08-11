@@ -1,6 +1,14 @@
 "use client";
 
-import { useStytch, useStytchUser } from "@stytch/nextjs";
+import type { ConfirmationResult, RecaptchaVerifier as RecaptchaVerifierType } from "firebase/auth";
+import {
+  isSignInWithEmailLink,
+  RecaptchaVerifier,
+  sendSignInLinkToEmail,
+  signInWithEmailLink,
+  signInWithPhoneNumber,
+  signOut as firebaseSignOut,
+} from "firebase/auth";
 import {
   FormEvent,
   KeyboardEvent,
@@ -13,9 +21,11 @@ import type { ReactNode } from "react";
 
 import {
   BenjiApiError,
+  AuthToken,
   ChatMember,
   ChatMessage,
   ChatUser,
+  checkAuthEligibility,
   ConversationSummary,
   createGroup,
   createGroupInvite,
@@ -23,9 +33,12 @@ import {
   loadConversations,
   openChatSession,
   sendChatMessage,
-  startPhoneAuthentication,
 } from "@/lib/api";
 import { AppsPanel } from "@/components/apps-panel";
+import {
+  getFirebaseAuth,
+  useDotAuth,
+} from "@/components/benji-auth-provider";
 import { IntegrationsPanel } from "@/components/integrations-panel";
 
 type StoredSession = {
@@ -38,10 +51,7 @@ type FailedTurn = {
 };
 
 const STORAGE_KEY = "benji-web-dev-session-v2";
-const STYTCH_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_STYTCH_PUBLIC_TOKEN);
-const STYTCH_SESSION_DURATION_MINUTES = Number(
-  process.env.NEXT_PUBLIC_STYTCH_SESSION_DURATION_MINUTES ?? "43200",
-);
+const EMAIL_FOR_SIGN_IN_KEY = "dot-email-for-sign-in";
 const suggestions = [
   "help me plan my week",
   "i need a second opinion",
@@ -55,7 +65,7 @@ function assistantBubbleDelayMs(content: string) {
 
 function readStoredSession(): StoredSession | null {
   try {
-    const value = window.localStorage.getItem(STORAGE_KEY);
+    const value = optionalStorageGet(STORAGE_KEY);
     return value ? (JSON.parse(value) as StoredSession) : null;
   } catch {
     return null;
@@ -63,7 +73,31 @@ function readStoredSession(): StoredSession | null {
 }
 
 function persistSession(session: StoredSession) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  optionalStorageSet(STORAGE_KEY, JSON.stringify(session));
+}
+
+function optionalStorageGet(key: string) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function optionalStorageSet(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Browser storage is a convenience, not part of authentication success.
+  }
+}
+
+function optionalStorageRemove(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Browser storage may be unavailable in private or restricted contexts.
+  }
 }
 
 function normalizePhoneInput(value: string) {
@@ -107,31 +141,53 @@ function MessageContent({ content }: { content: string }) {
 }
 
 export function ChatShell() {
-  return STYTCH_CONFIGURED ? <StytchChatGate /> : <ChatClient />;
-}
-
-function StytchChatGate() {
-  const stytch = useStytch();
-  const { user, isInitialized } = useStytchUser();
-
-  const getAuthToken = useCallback(
-    () => stytch.session.getTokens()?.session_jwt ?? undefined,
-    [stytch],
-  );
+  const { configured, initialized, user, idToken, error } = useDotAuth();
+  const [pendingEmailLink, setPendingEmailLink] = useState<boolean>();
+  const getAuthToken = useCallback(() => user?.getIdToken(), [user]);
   const signOut = useCallback(() => {
-    void stytch.session.revoke({ forceClear: true });
-  }, [stytch]);
+    const auth = getFirebaseAuth();
+    if (auth) void firebaseSignOut(auth);
+  }, []);
 
-  if (!isInitialized) return <BenjiLoading />;
-  if (!user) return <PhoneAuthScreen />;
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const auth = getFirebaseAuth();
+      setPendingEmailLink(Boolean(auth && isSignInWithEmailLink(auth, window.location.href)));
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  if (!configured) {
+    return process.env.NODE_ENV === "development" ? <ChatClient /> : <AuthUnavailable />;
+  }
+  if (pendingEmailLink === undefined) return <BenjiLoading />;
+  if (pendingEmailLink) return <FirebaseAuthScreen initialError={error} />;
+  if (!initialized || (user && !idToken)) return <BenjiLoading />;
+  if (!user) return <FirebaseAuthScreen initialError={error} />;
 
   return (
     <ChatClient
       authenticated
-      authenticatedPhone={user.phone_numbers[0]?.phone_number}
+      authenticatedIdentifier={user.phoneNumber ?? user.email ?? undefined}
       getAuthToken={getAuthToken}
       onSignOut={signOut}
     />
+  );
+}
+
+function AuthUnavailable() {
+  return (
+    <main className="grid min-h-dvh place-items-center bg-background px-5 text-foreground">
+      <section className="w-full max-w-md rounded-[30px] border border-black/8 bg-white/80 p-7 text-center shadow-[0_24px_70px_rgba(47,39,30,0.1)]">
+        <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-(--coral) text-xl font-semibold text-white">
+          d
+        </div>
+        <h1 className="mt-6 text-2xl font-semibold tracking-tight">dot is getting ready</h1>
+        <p className="mt-3 text-sm leading-6 text-black/50">
+          Secure sign-in isn’t configured on this deployment yet.
+        </p>
+      </section>
+    </main>
   );
 }
 
@@ -148,32 +204,170 @@ function BenjiLoading() {
   );
 }
 
-function PhoneAuthScreen() {
-  const stytch = useStytch();
-  const [phoneDraft, setPhoneDraft] = useState("");
-  const [methodId, setMethodId] = useState<string>();
-  const [code, setCode] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string>();
+type AuthStage = "identifier" | "phone_code" | "email_sent" | "email_link";
 
-  async function sendCode(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const phone = normalizePhoneInput(phoneDraft);
-    setPhoneDraft(phone);
-    if (!isPlausiblePhone(phone)) {
-      setError("Use the full international number, including + and country code.");
-      return;
-    }
+function firebaseErrorMessage(authError: unknown, fallback: string) {
+  const code = typeof authError === "object" && authError && "code" in authError
+    ? String(authError.code)
+    : "";
+  const messages: Record<string, string> = {
+    "auth/captcha-check-failed": "The security check expired. Please try again.",
+    "auth/code-expired": "That code expired. Request a new one.",
+    "auth/expired-action-code": "That email link expired. Request a fresh one.",
+    "auth/invalid-action-code": "That email link is invalid or has already been used.",
+    "auth/invalid-email": "Enter a valid email address.",
+    "auth/invalid-phone-number": "Use the full international number, including + and country code.",
+    "auth/invalid-verification-code": "That code didn’t work. Check it and try again.",
+    "auth/network-request-failed": "The connection dropped. Please try again.",
+    "auth/quota-exceeded": "SMS sign-in is temporarily unavailable. Try email instead.",
+    "auth/too-many-requests": "Too many attempts. Give it a little time, then try again.",
+    "auth/unauthorized-domain": "This web address hasn’t been authorized for Dot sign-in yet.",
+  };
+  return messages[code] ?? fallback;
+}
+
+function emailSignInCallbackUrl() {
+  const callbackUrl = new URL("/", window.location.origin);
+  callbackUrl.searchParams.set("auth", "email");
+  return callbackUrl.toString();
+}
+
+function leaveEmailSignInUrl() {
+  window.location.replace(new URL("/", window.location.origin).toString());
+}
+
+function FirebaseAuthScreen({ initialError }: { initialError?: string }) {
+  const auth = getFirebaseAuth();
+  const [identifierDraft, setIdentifierDraft] = useState("");
+  const [stage, setStage] = useState<AuthStage>("identifier");
+  const [code, setCode] = useState("");
+  const [resendAvailableIn, setResendAvailableIn] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | undefined>(initialError);
+  const confirmationResultRef = useRef<ConfirmationResult | undefined>(undefined);
+  const recaptchaVerifierRef = useRef<RecaptchaVerifierType | undefined>(undefined);
+  const emailLinkAttemptRef = useRef(false);
+
+  const completeEmailLink = useCallback(async (identifier: string) => {
+    if (!auth || emailLinkAttemptRef.current) return;
+    emailLinkAttemptRef.current = true;
     setIsSubmitting(true);
     setError(undefined);
     try {
-      const challenge = await startPhoneAuthentication(phone);
-      setMethodId(challenge.method_id);
+      const eligibility = await checkAuthEligibility(identifier.trim());
+      if (eligibility.kind !== "email") {
+        throw new Error("This sign-in link needs the email address it was sent to.");
+      }
+      setIdentifierDraft(eligibility.normalized_identifier);
+      if (auth.currentUser) await firebaseSignOut(auth);
+      await signInWithEmailLink(auth, eligibility.normalized_identifier, window.location.href);
+      optionalStorageRemove(EMAIL_FOR_SIGN_IN_KEY);
+      leaveEmailSignInUrl();
     } catch (authError) {
+      emailLinkAttemptRef.current = false;
       setError(
         authError instanceof BenjiApiError
           ? authError.message
-          : "I couldn’t send a verification code. Try again in a moment.",
+          : firebaseErrorMessage(authError, "That email link couldn’t sign you in. Request a fresh one."),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [auth]);
+
+  useEffect(() => {
+    if (!auth || !isSignInWithEmailLink(auth, window.location.href)) return;
+    const timeout = window.setTimeout(() => {
+      setStage("email_link");
+      void (async () => {
+        if (auth.currentUser) await firebaseSignOut(auth).catch(() => undefined);
+        const savedEmail = optionalStorageGet(EMAIL_FOR_SIGN_IN_KEY);
+        if (savedEmail) {
+          setIdentifierDraft(savedEmail);
+          await completeEmailLink(savedEmail);
+        }
+      })();
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [auth, completeEmailLink]);
+
+  useEffect(() => () => recaptchaVerifierRef.current?.clear(), []);
+
+  const resendCooldownActive = resendAvailableIn > 0;
+  useEffect(() => {
+    if (stage !== "phone_code" || !resendCooldownActive) return;
+    const interval = window.setInterval(() => {
+      setResendAvailableIn((current) => Math.max(0, current - 1));
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [resendCooldownActive, stage]);
+
+  function resetFlow() {
+    optionalStorageRemove(EMAIL_FOR_SIGN_IN_KEY);
+    if (stage === "email_link") {
+      leaveEmailSignInUrl();
+      return;
+    }
+    recaptchaVerifierRef.current?.clear();
+    recaptchaVerifierRef.current = undefined;
+    confirmationResultRef.current = undefined;
+    emailLinkAttemptRef.current = false;
+    setStage("identifier");
+    setCode("");
+    setResendAvailableIn(0);
+    setError(undefined);
+  }
+
+  async function requestPhoneCode(phoneNumber: string, verifierElementId: string) {
+    if (!auth) return;
+    recaptchaVerifierRef.current?.clear();
+    confirmationResultRef.current = undefined;
+    const verifier = new RecaptchaVerifier(auth, verifierElementId, {
+      size: "invisible",
+    });
+    recaptchaVerifierRef.current = verifier;
+    confirmationResultRef.current = await signInWithPhoneNumber(
+      auth,
+      phoneNumber,
+      verifier,
+    );
+    setCode("");
+    setResendAvailableIn(30);
+    setStage("phone_code");
+  }
+
+  async function beginAuthentication(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!auth) return;
+    if (stage === "email_link") {
+      await completeEmailLink(identifierDraft);
+      return;
+    }
+
+    const enteredIdentifier = identifierDraft.trim();
+    if (!enteredIdentifier) return;
+    setIsSubmitting(true);
+    setError(undefined);
+    try {
+      const eligibility = await checkAuthEligibility(enteredIdentifier);
+      setIdentifierDraft(eligibility.normalized_identifier);
+      if (eligibility.kind === "phone") {
+        await requestPhoneCode(eligibility.normalized_identifier, "auth-continue-button");
+      } else {
+        await sendSignInLinkToEmail(auth, eligibility.normalized_identifier, {
+          url: emailSignInCallbackUrl(),
+          handleCodeInApp: true,
+        });
+        optionalStorageSet(EMAIL_FOR_SIGN_IN_KEY, eligibility.normalized_identifier);
+        setStage("email_sent");
+      }
+    } catch (authError) {
+      recaptchaVerifierRef.current?.clear();
+      recaptchaVerifierRef.current = undefined;
+      setError(
+        authError instanceof BenjiApiError
+          ? authError.message
+          : firebaseErrorMessage(authError, "I couldn’t start sign-in. Try again in a moment."),
       );
     } finally {
       setIsSubmitting(false);
@@ -182,19 +376,47 @@ function PhoneAuthScreen() {
 
   async function verifyCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!methodId || code.length < 4) return;
+    if (!confirmationResultRef.current || code.length < 4) return;
     setIsSubmitting(true);
     setError(undefined);
     try {
-      await stytch.otps.authenticate(code, methodId, {
-        session_duration_minutes: STYTCH_SESSION_DURATION_MINUTES,
-      });
-    } catch {
-      setError("That code didn’t work. Check it and try again.");
+      await confirmationResultRef.current.confirm(code);
+    } catch (authError) {
+      setError(firebaseErrorMessage(authError, "That code didn’t work. Check it and try again."));
     } finally {
       setIsSubmitting(false);
     }
   }
+
+  async function resendCode() {
+    if (!auth || isSubmitting || resendAvailableIn > 0) return;
+    setIsSubmitting(true);
+    setError(undefined);
+    try {
+      const eligibility = await checkAuthEligibility(identifierDraft);
+      if (eligibility.kind !== "phone") {
+        setError("Use the phone number that should receive the verification code.");
+        return;
+      }
+      setIdentifierDraft(eligibility.normalized_identifier);
+      await requestPhoneCode(eligibility.normalized_identifier, "auth-resend-button");
+    } catch (authError) {
+      recaptchaVerifierRef.current?.clear();
+      recaptchaVerifierRef.current = undefined;
+      setError(
+        authError instanceof BenjiApiError
+          ? authError.message
+          : firebaseErrorMessage(authError, "I couldn’t send another code. Try again in a moment."),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const isPhoneCode = stage === "phone_code";
+  const isEmailSent = stage === "email_sent";
+  const isEmailLink = stage === "email_link";
+  const identifierLooksLikeEmail = isEmailLink || identifierDraft.includes("@");
 
   return (
     <main className="grid min-h-dvh place-items-center overflow-hidden bg-background px-5 py-10 text-foreground">
@@ -204,18 +426,28 @@ function PhoneAuthScreen() {
           d
         </div>
         <p className="mt-7 text-xs font-semibold uppercase tracking-[0.18em] text-(--coral)">
-          {methodId ? "check your phone" : "welcome back"}
+          {isPhoneCode ? "check your phone" : isEmailSent ? "check your email" : "welcome back"}
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-[-0.045em] sm:text-4xl">
-          {methodId ? "enter your code" : "open dot"}
+          {isPhoneCode
+            ? "enter your code"
+            : isEmailSent
+              ? "we sent you a link"
+              : isEmailLink
+                ? "finish signing in"
+                : "open dot"}
         </h1>
         <p className="mt-4 text-[15px] leading-7 text-black/52">
-          {methodId
-            ? `We sent a verification code to ${phoneDraft}. It arrives in a separate SMS and never becomes part of your Dot chat.`
-            : "Use the same phone number you message Dot from. There’s no separate web signup."}
+          {isPhoneCode
+            ? `We sent a verification code to ${identifierDraft}. It arrives in a separate SMS and never becomes part of your Dot chat.`
+            : isEmailSent
+              ? `Open the private sign-in link sent to ${identifierDraft}. You can close this page afterward.`
+              : isEmailLink
+                ? "Confirm the email address that received this private link."
+                : "Use the phone number or email address you message Dot from. There’s no separate web signup."}
         </p>
 
-        {methodId ? (
+        {isPhoneCode ? (
           <form onSubmit={verifyCode} className="mt-8 space-y-3">
             <label htmlFor="verification-code" className="block text-sm font-medium text-black/70">
               verification code
@@ -242,43 +474,78 @@ function PhoneAuthScreen() {
               {isSubmitting ? "checking…" : "open dot"}
             </button>
             <button
+              id="auth-resend-button"
               type="button"
-              onClick={() => {
-                setMethodId(undefined);
-                setCode("");
-                setError(undefined);
-              }}
+              onClick={() => void resendCode()}
+              disabled={isSubmitting || resendAvailableIn > 0}
+              className="h-10 w-full text-xs font-medium text-black/42 hover:text-black/65 disabled:cursor-not-allowed disabled:text-black/25"
+            >
+              {resendAvailableIn > 0
+                ? `send another code in ${resendAvailableIn}s`
+                : "send another code"}
+            </button>
+            <button
+              type="button"
+              onClick={resetFlow}
               className="h-10 w-full text-xs font-medium text-black/42 hover:text-black/65"
             >
-              use a different number
+              use a different phone or email
             </button>
           </form>
-        ) : (
-          <form onSubmit={sendCode} className="mt-8 space-y-3">
-            <label htmlFor="auth-phone-number" className="block text-sm font-medium text-black/70">
-              phone number
-            </label>
-            <input
-              id="auth-phone-number"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              value={phoneDraft}
-              onChange={(event) => {
-                setPhoneDraft(event.target.value);
-                setError(undefined);
-              }}
-              placeholder="+1 555 123 4567"
-              className="h-14 w-full rounded-2xl border border-black/10 bg-(--paper) px-4 text-base outline-none transition placeholder:text-black/28 focus:border-(--coral)/55 focus:ring-4 focus:ring-(--coral)/10"
-            />
+        ) : isEmailSent ? (
+          <div className="mt-8 space-y-3">
             {error && <p className="text-sm text-(--danger)">{error}</p>}
             <button
+              type="button"
+              onClick={resetFlow}
+              className="h-12 w-full rounded-2xl border border-black/10 bg-(--paper) text-sm font-semibold text-black/65 transition hover:bg-white"
+            >
+              use a different phone or email
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={beginAuthentication} className="mt-8 space-y-3">
+            <label htmlFor="auth-identifier" className="block text-sm font-medium text-black/70">
+              phone number or email
+            </label>
+            <input
+              id="auth-identifier"
+              type="text"
+              inputMode={identifierLooksLikeEmail ? "email" : "tel"}
+              autoComplete={identifierLooksLikeEmail ? "email" : "tel"}
+              value={identifierDraft}
+              onChange={(event) => {
+                setIdentifierDraft(event.target.value);
+                setError(undefined);
+              }}
+              placeholder="+1 555 123 4567 or you@example.com"
+              autoFocus={isEmailLink}
+              className="h-14 w-full rounded-2xl border border-black/10 bg-(--paper) px-4 text-base outline-none transition placeholder:text-black/28 focus:border-(--coral)/55 focus:ring-4 focus:ring-(--coral)/10"
+            />
+            {!identifierLooksLikeEmail && (
+              <p className="text-xs leading-5 text-black/38">
+                Continuing with a phone number sends one verification SMS. Message and data
+                rates may apply.
+              </p>
+            )}
+            {error && <p className="text-sm text-(--danger)">{error}</p>}
+            <button
+              id="auth-continue-button"
               type="submit"
-              disabled={isSubmitting || !phoneDraft.trim()}
+              disabled={isSubmitting || !identifierDraft.trim()}
               className="flex h-14 w-full items-center justify-center rounded-2xl bg-foreground px-5 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {isSubmitting ? "sending…" : "text me a code"}
+              {isSubmitting ? "checking…" : isEmailLink ? "finish signing in" : "continue"}
             </button>
+            {isEmailLink && (
+              <button
+                type="button"
+                onClick={resetFlow}
+                className="h-10 w-full text-xs font-medium text-black/42 hover:text-black/65"
+              >
+                request a fresh link
+              </button>
+            )}
           </form>
         )}
       </section>
@@ -288,20 +555,20 @@ function PhoneAuthScreen() {
 
 type ChatClientProps = {
   authenticated?: boolean;
-  authenticatedPhone?: string;
-  getAuthToken?: () => string | undefined;
+  authenticatedIdentifier?: string;
+  getAuthToken?: () => AuthToken;
   onSignOut?: () => void;
 };
 
 function ChatClient({
   authenticated = false,
-  authenticatedPhone,
+  authenticatedIdentifier,
   getAuthToken,
   onSignOut,
 }: ChatClientProps = {}) {
   const [hydrated, setHydrated] = useState(false);
   const [phoneDraft, setPhoneDraft] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState<string | undefined>(authenticatedPhone);
+  const [phoneNumber, setPhoneNumber] = useState<string>();
   const [conversationId, setConversationId] = useState<string>();
   const [conversationKind, setConversationKind] = useState<"direct" | "group">("direct");
   const [conversationTitle, setConversationTitle] = useState("dot");
@@ -348,7 +615,7 @@ function ChatClient({
         authToken: getAuthToken?.(),
       });
 
-      setPhoneNumber(phone ?? authenticatedPhone);
+      setPhoneNumber(phone);
       setConversationId(session.conversation_id);
       setConversationKind(session.conversation_kind);
       setConversationTitle(session.conversation_title);
@@ -367,7 +634,7 @@ function ChatClient({
     } finally {
       setIsConnecting(false);
     }
-  }, [authenticatedPhone, getAuthToken]);
+  }, [getAuthToken]);
 
   const refreshConversationList = useCallback(async () => {
     if (!authenticated && !phoneNumber) return;
@@ -386,7 +653,7 @@ function ChatClient({
       }
       setHydrated(true);
       if (authenticated) {
-        setPhoneNumber(authenticatedPhone);
+        setPhoneNumber(undefined);
         void connect();
         return;
       }
@@ -396,7 +663,7 @@ function ChatClient({
       void connect(stored.phoneNumber);
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [authenticated, authenticatedPhone, connect]);
+  }, [authenticated, connect]);
 
   useEffect(() => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -423,7 +690,7 @@ function ChatClient({
   }, [activeTab, conversationId, conversationKind, getAuthToken, phoneNumber]);
 
   function switchTester() {
-    window.localStorage.removeItem(STORAGE_KEY);
+    optionalStorageRemove(STORAGE_KEY);
     setPhoneNumber(undefined);
     setConversationId(undefined);
     setConversationKind("direct");
@@ -622,7 +889,7 @@ function ChatClient({
     );
   }
 
-  if (!phoneNumber || !conversationId) {
+  if ((!authenticated && !phoneNumber) || !conversationId) {
     return (
       <main className="grid min-h-dvh place-items-center overflow-hidden bg-background px-5 py-10 text-foreground">
         <div className="identity-glow" aria-hidden="true" />
@@ -669,7 +936,7 @@ function ChatClient({
             </button>
           </form>
           <p id="identity-note" className="mt-5 text-xs leading-5 text-black/38">
-            Development only. This is an identity selector, not authentication. Stytch phone
+            Development only. This is an identity selector, not authentication. Firebase
             authentication replaces it when credentials are configured.
           </p>
         </section>
@@ -749,7 +1016,7 @@ function ChatClient({
               {authenticated ? "verified account" : "local tester"}
             </p>
             <p className="mt-2 truncate font-mono text-xs text-black/62">
-              {phoneNumber ?? "verified with stytch"}
+              {authenticatedIdentifier ?? phoneNumber ?? "verified with firebase"}
             </p>
             <button
               type="button"
