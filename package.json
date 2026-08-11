@@ -9,6 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@stytch/nextjs": "^22.1.0",
+    "lucide": "^1.31.0",
+    "lucide-react": "^1.31.0",
+    "metal-fx": "^1.0.4",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
