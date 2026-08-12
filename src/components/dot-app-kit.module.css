@@ -333,6 +333,7 @@
 .fieldInput,
 .fieldSelect { min-height: 44px; padding: 9px 12px; }
 .fieldTextarea { min-height: 110px; resize: vertical; padding: 11px 12px; }
+.formError { color: #81372f; font-size: 12px; line-height: 1.45; }
 .fieldInput:focus,
 .fieldSelect:focus,
 .fieldTextarea:focus { border-color: var(--app-accent); box-shadow: 0 0 0 3px var(--app-accent-soft); }

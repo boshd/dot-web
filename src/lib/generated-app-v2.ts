@@ -35,12 +35,15 @@ export type DotAppField = {
     | "text"
     | "textarea"
     | "number"
+    | "integer"
     | "currency"
     | "date"
     | "time"
     | "email"
     | "select"
-    | "checkbox";
+    | "checkbox"
+    | "object"
+    | "array";
   placeholder?: string;
   required?: boolean;
   options?: Array<{ label: string; value: string }>;

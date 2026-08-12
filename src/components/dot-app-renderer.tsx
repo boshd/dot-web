@@ -232,14 +232,40 @@ function fieldDefault(field: DotAppField): JsonPrimitive {
   return field.type === "checkbox" ? false : "";
 }
 
+function submittedFieldValue(field: DotAppField, value: JsonPrimitive): JsonValue {
+  if (field.type !== "object" && field.type !== "array") return value;
+  let parsed: JsonValue;
+  try {
+    parsed = JSON.parse(String(value || (field.type === "array" ? "[]" : "{}"))) as JsonValue;
+  } catch {
+    throw new Error(`${field.label} needs valid JSON`);
+  }
+  const valid = field.type === "array"
+    ? Array.isArray(parsed)
+    : Boolean(parsed) && typeof parsed === "object" && !Array.isArray(parsed);
+  if (!valid) throw new Error(`${field.label} needs a JSON ${field.type}`);
+  return parsed;
+}
+
 function FormNode({ node, context }: { node: DotAppNode; context: RenderContext }) {
   const fields = useMemo(() => node.fields ?? [], [node.fields]);
   const [values, setValues] = useState<Record<string, JsonPrimitive>>(() => Object.fromEntries(fields.map((field) => [field.name, fieldDefault(field)])));
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!node.action) return;
-    await context.onAction(node.action, values);
+    setFormError(null);
+    let payload: Record<string, JsonValue>;
+    try {
+      payload = Object.fromEntries(
+        fields.map((field) => [field.name, submittedFieldValue(field, values[field.name])]),
+      );
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Check the form and try again.");
+      return;
+    }
+    await context.onAction(node.action, payload);
     setValues(Object.fromEntries(fields.map((field) => [field.name, fieldDefault(field)])));
   }
 
@@ -247,7 +273,7 @@ function FormNode({ node, context }: { node: DotAppNode; context: RenderContext 
     <form className={styles.form} onSubmit={(event) => void submit(event)}>
       <div className={styles.formGrid}>
         {fields.map((field) => (
-          <label className={cx(styles.field, field.type === "textarea" && styles.fieldWide)} key={field.name}>
+          <label className={cx(styles.field, ["textarea", "object", "array"].includes(field.type) && styles.fieldWide)} key={field.name}>
             {field.type === "checkbox" ? (
               <span className={styles.checkField}>
                 <input type="checkbox" checked={values[field.name] === true} onChange={(event) => setValues((current) => ({ ...current, [field.name]: event.target.checked }))} />
@@ -256,8 +282,8 @@ function FormNode({ node, context }: { node: DotAppNode; context: RenderContext 
             ) : (
               <>
                 <span className={styles.fieldLabel}>{field.label}</span>
-                {field.type === "textarea" ? (
-                  <textarea className={styles.fieldTextarea} required={field.required} placeholder={field.placeholder} value={String(values[field.name] ?? "")} onChange={(event) => setValues((current) => ({ ...current, [field.name]: event.target.value }))} />
+                {["textarea", "object", "array"].includes(field.type) ? (
+                  <textarea className={styles.fieldTextarea} required={field.required} placeholder={field.placeholder || (field.type === "array" ? '["item"]' : field.type === "object" ? '{"key":"value"}' : undefined)} value={String(values[field.name] ?? "")} onChange={(event) => setValues((current) => ({ ...current, [field.name]: event.target.value }))} />
                 ) : field.type === "select" ? (
                   <select className={styles.fieldSelect} required={field.required} value={String(values[field.name] ?? "")} onChange={(event) => setValues((current) => ({ ...current, [field.name]: event.target.value }))}>
                     <option value="">{field.placeholder || "Choose one"}</option>
@@ -266,13 +292,13 @@ function FormNode({ node, context }: { node: DotAppNode; context: RenderContext 
                 ) : (
                   <input
                     className={styles.fieldInput}
-                    type={field.type === "currency" ? "number" : field.type}
+                    type={field.type === "currency" || field.type === "integer" ? "number" : field.type}
                     inputMode={field.type === "currency" ? "decimal" : undefined}
-                    step={field.type === "currency" ? "0.01" : undefined}
+                    step={field.type === "currency" ? "0.01" : field.type === "integer" ? "1" : undefined}
                     required={field.required}
                     placeholder={field.placeholder}
                     value={String(values[field.name] ?? "")}
-                    onChange={(event) => setValues((current) => ({ ...current, [field.name]: field.type === "number" || field.type === "currency" ? (event.target.value === "" ? "" : Number(event.target.value)) : event.target.value }))}
+                    onChange={(event) => setValues((current) => ({ ...current, [field.name]: field.type === "number" || field.type === "integer" || field.type === "currency" ? (event.target.value === "" ? "" : Number(event.target.value)) : event.target.value }))}
                   />
                 )}
               </>
@@ -280,6 +306,7 @@ function FormNode({ node, context }: { node: DotAppNode; context: RenderContext 
           </label>
         ))}
       </div>
+      {formError && <div className={styles.formError} role="alert">{formError}</div>}
       {node.action && <KitButton type="submit" disabled={context.busyOperation === node.action.operation}>{context.busyOperation === node.action.operation ? "saving…" : node.submit_label || "save"}</KitButton>}
     </form>
   );
