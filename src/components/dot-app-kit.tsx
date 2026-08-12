@@ -3,7 +3,7 @@
 import { AlertTriangle, ArrowLeft, LoaderCircle, LockKeyhole, RefreshCw, Share2 } from "lucide-react";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 
-import type { DotAppTone, DotAppDocument } from "@/lib/generated-app-v2";
+import type { DotAppTone } from "@/lib/generated-app-v2";
 
 import styles from "./dot-app-kit.module.css";
 
@@ -22,13 +22,11 @@ const toneClasses: Record<DotAppTone, string | undefined> = {
 
 export function DotAppFrame({
   title,
-  theme,
   onShare,
   fullBleed = false,
   children,
 }: {
   title: string;
-  theme?: DotAppDocument["theme"];
   onShare?: () => void;
   fullBleed?: boolean;
   children: ReactNode;
@@ -36,9 +34,9 @@ export function DotAppFrame({
   return (
     <main
       className={styles.runtime}
-      data-accent={theme?.accent ?? "coral"}
-      data-radius={theme?.radius ?? "soft"}
-      data-density={theme?.density ?? "comfortable"}
+      data-accent="coral"
+      data-radius="soft"
+      data-density="comfortable"
     >
       <header className={styles.chrome}>
         <div className={styles.brand} aria-label={`${title}, made with Dot`}>

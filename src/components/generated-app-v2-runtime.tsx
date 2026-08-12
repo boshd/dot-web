@@ -10,7 +10,6 @@ import {
   generatedAppV2SharedHandoff,
   GeneratedAppV2ApiError,
   loadGeneratedAppV2,
-  queryGeneratedAppV2Records,
   redeemGeneratedAppV2Handoff,
   storeGeneratedAppV2SharedHandoff,
   verifyGeneratedAppV2BrowserBundle,
@@ -44,50 +43,6 @@ function takeHashHandoff() {
   return value && /^[A-Za-z0-9_-]{20,1024}$/.test(value) ? value : null;
 }
 
-function entityNames(app: GeneratedAppV2) {
-  const entities = app.active_revision?.manifest.entities;
-  if (!Array.isArray(entities)) return [];
-  return entities.flatMap((entity) => {
-    if (!entity || typeof entity !== "object" || Array.isArray(entity)) return [];
-    return typeof entity.name === "string" ? [entity.name] : [];
-  }).slice(0, 12);
-}
-
-function pluralKey(entity: string) {
-  if (entity.endsWith("s")) return entity;
-  if (entity.endsWith("y") && !/[aeiou]y$/.test(entity)) return `${entity.slice(0, -1)}ies`;
-  return `${entity}s`;
-}
-
-async function hydrateAppRecords(publicId: string, loaded: GeneratedAppV2) {
-  if (loaded.access.state !== "granted" || !loaded.active_revision) return loaded;
-  const names = entityNames(loaded);
-  if (!names.length) return loaded;
-  const results = await Promise.allSettled(
-    names.map(async (entity) => ({
-      entity,
-      records: await queryGeneratedAppV2Records({ publicId, appId: loaded.id, entity }),
-    })),
-  );
-  const document = loaded.active_revision.artifact.document;
-  const data = { ...(document.data ?? {}) };
-  for (const result of results) {
-    if (result.status !== "fulfilled") continue;
-    data[result.value.entity] = result.value.records;
-    data[pluralKey(result.value.entity)] = result.value.records;
-  }
-  return {
-    ...loaded,
-    active_revision: {
-      ...loaded.active_revision,
-      artifact: {
-        ...loaded.active_revision.artifact,
-        document: { ...document, data },
-      },
-    },
-  };
-}
-
 function sandboxRecord(value: JsonValue): JsonValue {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const data = value.data;
@@ -102,33 +57,6 @@ function sandboxRecord(value: JsonValue): JsonValue {
     created_at: typeof value.created_at === "string" ? value.created_at : null,
     updated_at: typeof value.updated_at === "string" ? value.updated_at : null,
   };
-}
-
-function replaceSandboxRecord(
-  context: JsonValue,
-  operation: GeneratedAppV2RuntimeOperation,
-  result: JsonValue,
-): JsonValue {
-  if (!context || typeof context !== "object" || Array.isArray(context)) return context;
-  if (!result || typeof result !== "object" || Array.isArray(result)) return context;
-  const entity = typeof result.entity === "string" ? result.entity : null;
-  const id = typeof result.id === "string" ? result.id : null;
-  if (!entity || !id) return context;
-  const record = sandboxRecord(result);
-  const keys = [entity, pluralKey(entity)];
-  const updated = { ...context };
-  for (const key of keys) {
-    const current = Array.isArray(updated[key]) ? updated[key] as JsonValue[] : [];
-    if (operation === "records.create") updated[key] = [...current, record];
-    else if (operation === "records.update") {
-      updated[key] = current.map((item) => (
-        item && typeof item === "object" && !Array.isArray(item) && item.id === id
-          ? record
-          : item
-      ));
-    }
-  }
-  return updated;
 }
 
 export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
@@ -160,7 +88,7 @@ export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
         storeGeneratedAppV2SharedHandoff(appId, redeemedHandoffRef.current);
       }
       redeemedHandoffRef.current = null;
-      setApp(await hydrateAppRecords(appId, loaded));
+      setApp(loaded);
       setErrorStatus(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Dot couldn’t load this app.");
@@ -182,13 +110,10 @@ export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
     return () => window.clearInterval(interval);
   }, [app?.status, load]);
 
-  const document = app?.active_revision?.artifact.document;
   const browserBundle = app?.active_revision?.artifact.browser_bundle;
   const bundleKey = app?.active_revision && browserBundle
     ? `${app.active_revision.id}:${browserBundle.sha256}`
     : null;
-  const theme = document?.theme;
-
   useEffect(() => {
     const candidate = browserBundle;
     const candidateKey = bundleKey;
@@ -203,9 +128,9 @@ export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
   }, [app?.active_revision?.id, browserBundle, bundleKey]);
 
   const sandboxContext = useMemo<JsonValue>(() => {
-    if (!app?.active_revision || !document) return {};
+    if (!app?.active_revision) return {};
     return {
-      ...(document.data ?? {}),
+      ...app.active_revision.seed_data,
       $app: {
         id: app.id,
         public_id: appId,
@@ -220,7 +145,7 @@ export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
       },
       $manifest: app.active_revision.manifest,
     };
-  }, [app, appId, document]);
+  }, [app, appId]);
 
   const state = useMemo(() => {
     if (loading) return { kind: "loading" as const, title: "opening your app", body: "one sec" };
@@ -231,9 +156,9 @@ export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
     if (app.status === "archived") return { kind: "archived" as const, title: "this app was archived", body: "Nothing was deleted. Ask Dot to bring it back if you still need it." };
     if (app.status === "failed") return { kind: "error" as const, title: "the build didn’t land", body: buildMessage(app) };
     if (app.status === "building") return { kind: "building" as const, title: app.title || "Dot’s building it", body: buildMessage(app) };
-    if (!app.active_revision || !document) return { kind: "error" as const, title: "this app needs a rebuild", body: "Dot won’t open an incomplete app." };
+    if (!app.active_revision) return { kind: "error" as const, title: "this app needs a rebuild", body: "Dot won’t open an incomplete app." };
     return null;
-  }, [app, document, error, errorStatus, loading]);
+  }, [app, error, errorStatus, loading]);
 
   const runSandboxAction = useCallback(async (
     operation: GeneratedAppV2RuntimeOperation,
@@ -264,35 +189,8 @@ export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
         meta: result.meta,
       };
     }
-    if (operation === "records.create" || operation === "records.update") {
-      const nextData = replaceSandboxRecord(
-        app.active_revision.artifact.document.data ?? {},
-        operation,
-        result.data,
-      );
-      setApp((current) => {
-        if (!current?.active_revision) return current;
-        return {
-          ...current,
-          active_revision: {
-            ...current.active_revision,
-            artifact: {
-              ...current.active_revision.artifact,
-              document: {
-                ...current.active_revision.artifact.document,
-                data: nextData && typeof nextData === "object" && !Array.isArray(nextData)
-                  ? nextData
-                  : current.active_revision.artifact.document.data,
-              },
-            },
-          },
-        };
-      });
-    } else if (operation === "records.delete" || operation === "dot.reminder.create") {
-      void load(true);
-    }
     return sandboxRecord(result.data);
-  }, [app, appId, load, sandboxContext]);
+  }, [app, appId, sandboxContext]);
 
   async function share() {
     const handoff = app?.access.mode === "shared"
@@ -310,7 +208,7 @@ export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
     return <KitStatePanel {...state} action={state.kind === "error" ? { label: "try again", onClick: () => void load() } : undefined} />;
   }
 
-  if (!app || !document) return null;
+  if (!app) return null;
   if (!browserBundle || !app.active_revision) {
     return <KitStatePanel kind="error" title="this app isn’t ready" body="Dot needs to rebuild it before it can open." />;
   }
@@ -326,7 +224,6 @@ export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
   return (
     <DotAppFrame
       title={app.title}
-      theme={theme}
       onShare={canShare ? () => void share() : undefined}
       fullBleed
     >

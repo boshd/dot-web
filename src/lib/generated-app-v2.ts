@@ -16,115 +16,6 @@ export type DotAppTone =
   | "danger"
   | "info";
 
-export type DotAppValue = JsonPrimitive | { bind: string; fallback?: JsonPrimitive };
-
-export type DotAppAction = {
-  operation: string;
-  payload?: Record<string, JsonValue>;
-  confirm?: {
-    title: string;
-    description?: string;
-    button_label?: string;
-  };
-};
-
-export type DotAppField = {
-  name: string;
-  label: string;
-  type:
-    | "text"
-    | "textarea"
-    | "number"
-    | "integer"
-    | "currency"
-    | "date"
-    | "time"
-    | "email"
-    | "select"
-    | "checkbox"
-    | "object"
-    | "array";
-  placeholder?: string;
-  required?: boolean;
-  options?: Array<{ label: string; value: string }>;
-  default_value?: JsonPrimitive;
-};
-
-export type DotAppTableColumn = {
-  key: string;
-  label: string;
-  align?: "start" | "center" | "end";
-  format?: "text" | "number" | "currency" | "date" | "status";
-};
-
-export type DotAppNode = {
-  id: string;
-  type:
-    | "page"
-    | "hero"
-    | "section"
-    | "stack"
-    | "cluster"
-    | "grid"
-    | "card"
-    | "heading"
-    | "text"
-    | "badge"
-    | "button"
-    | "metric"
-    | "progress"
-    | "callout"
-    | "divider"
-    | "list"
-    | "table"
-    | "timeline"
-    | "kanban"
-    | "form"
-    | "empty"
-    | "sparkline";
-  children?: DotAppNode[];
-  title?: DotAppValue;
-  subtitle?: DotAppValue;
-  body?: DotAppValue;
-  value?: DotAppValue;
-  label?: DotAppValue;
-  overline?: DotAppValue;
-  source?: string;
-  tone?: DotAppTone;
-  size?: "sm" | "md" | "lg" | "xl";
-  align?: "start" | "center" | "end" | "between";
-  gap?: "tight" | "normal" | "loose";
-  columns?: 1 | 2 | 3 | 4;
-  variant?: "plain" | "soft" | "outline" | "elevated" | "accent";
-  format?: "text" | "number" | "currency" | "percent" | "date";
-  currency?: string;
-  min?: number;
-  max?: number;
-  items?: Array<Record<string, JsonValue>>;
-  item_title?: string;
-  item_detail?: string;
-  item_meta?: string;
-  table_columns?: DotAppTableColumn[];
-  lanes?: Array<{ key: string; label: string; tone?: DotAppTone }>;
-  fields?: DotAppField[];
-  submit_label?: string;
-  action?: DotAppAction;
-  empty_title?: string;
-  empty_body?: string;
-  points?: number[];
-};
-
-export type DotAppDocument = {
-  schema_version: 1;
-  root: DotAppNode;
-  data?: Record<string, JsonValue>;
-  theme?: {
-    accent?: "coral" | "sage" | "ocean" | "plum" | "gold" | "sky";
-    density?: "compact" | "comfortable" | "spacious";
-    radius?: "soft" | "round" | "sharp";
-  };
-};
-
 export type GeneratedAppV2BrowserBundle = {
   format: "iife";
   javascript: string;
@@ -154,8 +45,6 @@ export async function verifyGeneratedAppV2BrowserBundle(
 
 export type GeneratedAppV2Artifact = {
   kind: "code";
-  schema_version: 1;
-  document: DotAppDocument;
   browser_bundle: GeneratedAppV2BrowserBundle;
 };
 
@@ -179,6 +68,7 @@ export type GeneratedAppV2Revision = {
   version: number;
   runtime_version: string;
   manifest: Record<string, JsonValue>;
+  seed_data: Record<string, JsonValue>;
   artifact: GeneratedAppV2Artifact;
 };
 
@@ -293,78 +183,9 @@ function enumValue<T extends string>(value: unknown, allowed: readonly T[], fall
   return typeof value === "string" && allowed.includes(value as T) ? (value as T) : fallback;
 }
 
-const nodeTypes = new Set<DotAppNode["type"]>([
-  "page", "hero", "section", "stack", "cluster", "grid", "card", "heading", "text",
-  "badge", "button", "metric", "progress", "callout", "divider", "list", "table",
-  "timeline", "kanban", "form", "empty", "sparkline",
-]);
-
-function validDocument(value: Record<string, unknown>): value is unknown & DotAppDocument {
-  if (value.schema_version !== 1 || !isObject(value.root)) return false;
-  const ids = new Set<string>();
-  let count = 0;
-
-  function visit(node: Record<string, unknown>, depth: number): boolean {
-    count += 1;
-    if (count > 250 || depth > 12) return false;
-    if (
-      typeof node.id !== "string" ||
-      node.id.length < 1 ||
-      node.id.length > 128 ||
-      ids.has(node.id) ||
-      typeof node.type !== "string" ||
-      !nodeTypes.has(node.type as DotAppNode["type"])
-    ) return false;
-    ids.add(node.id);
-    if (node.children !== undefined) {
-      if (!Array.isArray(node.children) || node.children.length > 100) return false;
-      if (!node.children.every((child) => isObject(child) && visit(child, depth + 1))) return false;
-    }
-    if (
-      node.items !== undefined &&
-      (!Array.isArray(node.items) || node.items.length > 1_000 || !node.items.every(isObject))
-    ) return false;
-    if (
-      node.fields !== undefined &&
-      (!Array.isArray(node.fields) || node.fields.length > 50 || !node.fields.every((field) =>
-        isObject(field) && typeof field.name === "string" && typeof field.label === "string" && typeof field.type === "string"
-      ))
-    ) return false;
-    if (
-      node.table_columns !== undefined &&
-      (!Array.isArray(node.table_columns) || node.table_columns.length > 30 || !node.table_columns.every((column) =>
-        isObject(column) && typeof column.key === "string" && typeof column.label === "string"
-      ))
-    ) return false;
-    if (
-      node.lanes !== undefined &&
-      (!Array.isArray(node.lanes) || node.lanes.length > 20 || !node.lanes.every((lane) =>
-        isObject(lane) && typeof lane.key === "string" && typeof lane.label === "string"
-      ))
-    ) return false;
-    if (
-      node.points !== undefined &&
-      (!Array.isArray(node.points) || node.points.length > 500 || !node.points.every((point) => typeof point === "number" && Number.isFinite(point)))
-    ) return false;
-    if (
-      node.action !== undefined &&
-      (!isObject(node.action) || typeof node.action.operation !== "string")
-    ) return false;
-    return true;
-  }
-
-  return visit(value.root, 0);
-}
-
 function normalizeArtifact(value: unknown): GeneratedAppV2Artifact | null {
   if (!isObject(value)) return null;
   const payload = isObject(value.payload) ? value.payload : value;
-  const document = isObject(payload.document)
-    ? payload.document
-    : isObject(payload.render_document)
-      ? payload.render_document
-      : null;
-  if (!document || !validDocument(document)) return null;
   const bundleValue = isObject(payload.browser_bundle) ? payload.browser_bundle : null;
   const browserBundle = bundleValue &&
     bundleValue.format === "iife" &&
@@ -390,8 +211,6 @@ function normalizeArtifact(value: unknown): GeneratedAppV2Artifact | null {
   if (!browserBundle) return null;
   return {
     kind: "code",
-    schema_version: 1,
-    document: document as unknown as DotAppDocument,
     browser_bundle: browserBundle,
   };
 }
@@ -480,6 +299,9 @@ export function normalizeGeneratedAppV2(payload: unknown): GeneratedAppV2 {
           runtime_version: stringValue(revisionValue.runtime_version, stringValue(revisionValue.sdk_version, "2")),
           manifest: isObject(revisionValue.manifest)
             ? revisionValue.manifest as Record<string, JsonValue>
+            : {},
+          seed_data: isJsonObject(revisionValue.seed_data)
+            ? revisionValue.seed_data
             : {},
           artifact,
         }
