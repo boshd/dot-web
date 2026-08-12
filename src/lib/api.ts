@@ -91,8 +91,14 @@ export type GeneratedAppSummary = {
   public_id: string;
   title: string;
   description: string;
-  template: "budget" | "expense_splitter" | "metric_tracker" | "checklist" | "workspace";
-  theme: "coral" | "sage" | "ocean" | "plum" | "gold";
+  template:
+    | "budget"
+    | "expense_splitter"
+    | "metric_tracker"
+    | "checklist"
+    | "workspace"
+    | "code_app";
+  theme: "coral" | "sage" | "ocean" | "plum" | "gold" | "dot";
   access_mode: "private_link" | "collaborative_link";
   app_url: string;
   created_at: string;
@@ -135,6 +141,13 @@ export type GeneratedAppDetail = GeneratedAppSummary & {
     modules?: GeneratedAppModule[];
   };
   records: GeneratedAppRecord[];
+};
+
+export type WaitlistJoinResponse = {
+  joined: boolean;
+  position: number;
+  referral_code: string;
+  referral_count: number;
 };
 
 export class BenjiApiError extends Error {
@@ -189,6 +202,24 @@ async function request<T>(path: string, body: object, authToken?: AuthToken): Pr
     { method: "POST", body: JSON.stringify(body) },
     authToken,
   );
+}
+
+export function joinWaitlist(input: {
+  email: string;
+  referralCode?: string;
+  source?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+}): Promise<WaitlistJoinResponse> {
+  return request<WaitlistJoinResponse>("/api/v1/waitlist", {
+    email: input.email,
+    referral_code: input.referralCode || null,
+    source: input.source || "landing",
+    utm_source: input.utmSource || null,
+    utm_medium: input.utmMedium || null,
+    utm_campaign: input.utmCampaign || null,
+  });
 }
 
 export function openChatSession(input: {

@@ -15,6 +15,7 @@ const themeColors = {
   ocean: "#397a91",
   plum: "#7d5a82",
   gold: "#a87827",
+  dot: "#df654f",
 };
 
 export async function GET(_request: Request, { params }: RouteContext) {

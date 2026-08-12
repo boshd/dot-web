@@ -178,7 +178,10 @@ export function ChatShell() {
   }, []);
 
   if (!configured) {
-    return process.env.NODE_ENV === "development" ? <ChatClient /> : <AuthUnavailable />;
+    return process.env.NODE_ENV === "development" ||
+      process.env.NEXT_PUBLIC_DEV_IDENTITY_ENABLED === "true"
+      ? <ChatClient />
+      : <AuthUnavailable />;
   }
   if (pendingEmailLink === undefined) return <BenjiLoading />;
   if (pendingEmailLink) return <FirebaseAuthScreen initialError={error} />;

@@ -1,5 +1,10 @@
 import { ChatShell } from "@/components/chat-shell";
+import { BenjiAuthProvider } from "@/components/benji-auth-provider";
 
 export default function Home() {
-  return <ChatShell />;
+  return (
+    <BenjiAuthProvider>
+      <ChatShell />
+    </BenjiAuthProvider>
+  );
 }

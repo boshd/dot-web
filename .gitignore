@@ -16,6 +16,7 @@
 # next.js
 /.next/
 /out/
+/public/dot-generated-app-*.js
 
 # production
 /build
