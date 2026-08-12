@@ -12,8 +12,6 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    "public/dot-generated-app-guest.js",
-    "public/dot-generated-app-worker.js",
   ]),
 ]);
 

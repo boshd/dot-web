@@ -153,10 +153,10 @@ export async function verifyGeneratedAppV2BrowserBundle(
 }
 
 export type GeneratedAppV2Artifact = {
-  kind: "code" | "declarative";
+  kind: "code";
   schema_version: 1;
   document: DotAppDocument;
-  browser_bundle: GeneratedAppV2BrowserBundle | null;
+  browser_bundle: GeneratedAppV2BrowserBundle;
 };
 
 export type GeneratedAppV2Access = {
@@ -387,8 +387,9 @@ function normalizeArtifact(value: unknown): GeneratedAppV2Artifact | null {
         static_html: bundleValue.static_html,
       }
     : null;
+  if (!browserBundle) return null;
   return {
-    kind: browserBundle ? "code" : "declarative",
+    kind: "code",
     schema_version: 1,
     document: document as unknown as DotAppDocument,
     browser_bundle: browserBundle,

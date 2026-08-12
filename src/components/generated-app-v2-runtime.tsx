@@ -3,20 +3,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DotAppFrame, KitStatePanel, dotAppStyles as styles } from "@/components/dot-app-kit";
-import { DotAppRenderer } from "@/components/dot-app-renderer";
 import { GeneratedAppIframe } from "@/components/generated-app-iframe";
 import { useDotAuth } from "@/components/benji-auth-provider";
 import {
   executeGeneratedAppV2Action,
   generatedAppV2SharedHandoff,
   GeneratedAppV2ApiError,
-  invokeGeneratedAppV2,
   loadGeneratedAppV2,
   queryGeneratedAppV2Records,
   redeemGeneratedAppV2Handoff,
   storeGeneratedAppV2SharedHandoff,
   verifyGeneratedAppV2BrowserBundle,
-  type DotAppAction,
   type GeneratedAppV2,
   type GeneratedAppV2RuntimeOperation,
   type JsonValue,
@@ -140,7 +137,6 @@ export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
-  const [busyOperation, setBusyOperation] = useState<string | null>(null);
   const [failedBundleRevision, setFailedBundleRevision] = useState<string | null>(null);
   const [verifiedBundleKey, setVerifiedBundleKey] = useState<string | null>(null);
   const handoffRef = useRef<string | null | undefined>(undefined);
@@ -234,54 +230,10 @@ export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
     if (app.access.state !== "granted") return { kind: "permission" as const, title: "you need access", body: "Open the private link Dot sent you, or ask the owner to share this app." };
     if (app.status === "archived") return { kind: "archived" as const, title: "this app was archived", body: "Nothing was deleted. Ask Dot to bring it back if you still need it." };
     if (app.status === "failed") return { kind: "error" as const, title: "the build didn’t land", body: buildMessage(app) };
-    if (app.status === "building" || !document) return { kind: "building" as const, title: app.title || "Dot’s building it", body: buildMessage(app) };
+    if (app.status === "building") return { kind: "building" as const, title: app.title || "Dot’s building it", body: buildMessage(app) };
+    if (!app.active_revision || !document) return { kind: "error" as const, title: "this app needs a rebuild", body: "Dot won’t open an incomplete app." };
     return null;
   }, [app, document, error, errorStatus, loading]);
-
-  async function runAction(action: DotAppAction, payload: Record<string, JsonValue> = {}) {
-    if (!app?.active_revision || !app.access.can_edit) {
-      setError("You can look around, but you don’t have permission to change this app.");
-      return;
-    }
-    const actionPayload = { ...action.payload, ...payload };
-    if (action.operation === "dot.reminder.create") {
-      const when = typeof actionPayload.run_at === "string"
-        ? new Date(actionPayload.run_at).toLocaleString()
-        : "the requested time";
-      const reminder = String(actionPayload.goal ?? "");
-      if (!window.confirm(
-        `set “${String(actionPayload.title ?? "this reminder")}” for ${when}?\n\nDot will send this reminder (it won't run tools or take other actions):\n${reminder}`,
-      )) {
-        return;
-      }
-    } else if (action.confirm) {
-      const prompt = [action.confirm.title, action.confirm.description].filter(Boolean).join("\n\n");
-      if (!window.confirm(prompt)) return;
-    }
-    setBusyOperation(action.operation);
-    setError(null);
-    try {
-      const updated = await invokeGeneratedAppV2({
-        publicId: appId,
-        appId: app.id,
-        operation: action.operation,
-        payload: action.operation === "records.create" || action.operation === "records.update"
-          ? {
-              ...action.payload,
-              data: {
-                ...(action.payload?.data && typeof action.payload.data === "object" && !Array.isArray(action.payload.data) ? action.payload.data : {}),
-                ...payload,
-              },
-            }
-          : { ...action.payload, ...payload },
-      });
-      setApp(await hydrateAppRecords(appId, updated));
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "That didn’t save. Try again.");
-    } finally {
-      setBusyOperation(null);
-    }
-  }
 
   const runSandboxAction = useCallback(async (
     operation: GeneratedAppV2RuntimeOperation,
@@ -359,12 +311,15 @@ export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
   }
 
   if (!app || !document) return null;
-  const renderCompiledApp = Boolean(
-    browserBundle &&
-    app.active_revision &&
-    verifiedBundleKey === bundleKey &&
-    failedBundleRevision !== app.active_revision.id,
-  );
+  if (!browserBundle || !app.active_revision) {
+    return <KitStatePanel kind="error" title="this app isn’t ready" body="Dot needs to rebuild it before it can open." />;
+  }
+  if (failedBundleRevision === app.active_revision.id) {
+    return <KitStatePanel kind="error" title="this app couldn’t open" body="Dot needs to repair this build." />;
+  }
+  if (verifiedBundleKey !== bundleKey) {
+    return <KitStatePanel kind="loading" title="opening your app" body="one sec" />;
+  }
   const canShare = app.access.mode === "public" || (
     app.access.mode === "shared" && Boolean(generatedAppV2SharedHandoff(appId))
   );
@@ -373,21 +328,17 @@ export function GeneratedAppV2Runtime({ appId }: { appId: string }) {
       title={app.title}
       theme={theme}
       onShare={canShare ? () => void share() : undefined}
-      fullBleed={renderCompiledApp}
+      fullBleed
     >
-      {renderCompiledApp && browserBundle && app.active_revision ? (
-        <GeneratedAppIframe
-          key={bundleKey ?? app.active_revision.id}
-          bundle={browserBundle}
-          context={sandboxContext}
-          title={app.title}
-          capabilities={app.access.capabilities}
-          onRequest={runSandboxAction}
-          onFallback={() => setFailedBundleRevision(app.active_revision?.id ?? null)}
-        />
-      ) : (
-        <DotAppRenderer document={document} onAction={runAction} busyOperation={busyOperation} />
-      )}
+      <GeneratedAppIframe
+        key={bundleKey ?? app.active_revision.id}
+        bundle={browserBundle}
+        context={sandboxContext}
+        title={app.title}
+        capabilities={app.access.capabilities}
+        onRequest={runSandboxAction}
+        onRuntimeError={() => setFailedBundleRevision(app.active_revision?.id ?? null)}
+      />
       {error && <div className={styles.runtimeError} role="alert">{error}</div>}
     </DotAppFrame>
   );

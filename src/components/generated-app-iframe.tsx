@@ -44,7 +44,7 @@ type GeneratedAppIframeProps = {
     args: Record<string, JsonValue>,
     idempotencyKey?: string,
   ) => Promise<JsonValue>;
-  onFallback: () => void;
+  onRuntimeError: () => void;
 };
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -318,14 +318,14 @@ export function GeneratedAppIframe({
   title,
   capabilities,
   onRequest,
-  onFallback,
+  onRuntimeError,
 }: GeneratedAppIframeProps) {
   const runtimeId = useId();
   const frameRef = useRef<HTMLIFrameElement>(null);
   const contextRef = useRef(context);
   const requestHandlerRef = useRef(onRequest);
   const capabilitiesRef = useRef(capabilities);
-  const fallbackRef = useRef(onFallback);
+  const runtimeErrorRef = useRef(onRuntimeError);
   const connectionRef = useRef<{ id: string; port: MessagePort } | null>(null);
   const inFlightRef = useRef(new Set<string>());
   const requestTimesRef = useRef<number[]>([]);
@@ -342,8 +342,8 @@ export function GeneratedAppIframe({
   useEffect(() => {
     requestHandlerRef.current = onRequest;
     capabilitiesRef.current = capabilities;
-    fallbackRef.current = onFallback;
-  }, [capabilities, onFallback, onRequest]);
+    runtimeErrorRef.current = onRuntimeError;
+  }, [capabilities, onRequest, onRuntimeError]);
 
   useEffect(() => () => {
     connectionRef.current?.port.close();
@@ -389,7 +389,7 @@ export function GeneratedAppIframe({
         return;
       }
       if (message.type === "dot.app.error") {
-        fallbackRef.current();
+        runtimeErrorRef.current();
         return;
       }
       if (message.type !== "dot.app.request") return;

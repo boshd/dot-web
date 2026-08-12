@@ -3,22 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build:generated-app-runtime": "node scripts/build-generated-app-runtime.mjs",
     "test:generated-app-sanitizer": "node scripts/test-generated-app-sanitizer.mjs",
-    "dev": "yarn build:generated-app-runtime && next dev",
-    "build": "yarn build:generated-app-runtime && next build",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
-    "@jitl/quickjs-singlefile-browser-release-sync": "0.32.0",
     "firebase": "^12.17.1",
     "linkedom": "0.18.13",
     "lucide": "^1.31.0",
     "lucide-react": "^1.31.0",
     "metal-fx": "^1.0.4",
     "next": "16.3.0",
-    "quickjs-emscripten-core": "0.32.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
