@@ -361,13 +361,19 @@
 .stateBody { margin: 9px auto 0; color: var(--app-muted); font-size: 14px; line-height: 1.6; }
 .stateActions { display: flex; justify-content: center; gap: 9px; margin-top: 22px; }
 .buildSteps { display: flex; justify-content: center; gap: 6px; margin-top: 24px; }
-.buildStep { width: 28px; height: 4px; overflow: hidden; border-radius: 999px; background: rgb(23 23 20 / 9%); }
-.buildStepActive { background: var(--app-accent); animation: appPulse 1.25s ease-in-out infinite alternate; }
+.buildStep { width: 28px; height: 4px; overflow: hidden; border-radius: 999px; background: rgb(23 23 20 / 9%); transform-origin: left center; }
+.buildStepActive { background: var(--app-accent); animation: appStepFill 1.8s ease-in-out infinite; }
+.buildStep:nth-child(2).buildStepActive { animation-delay: .35s; }
+.buildStep:nth-child(3).buildStepActive { animation-delay: .7s; }
 
 .runtimeError { position: fixed; z-index: 40; right: 16px; bottom: 16px; width: min(390px, calc(100% - 32px)); border: 1px solid #e8bdb7; border-radius: 14px; background: #fff8f6; padding: 13px 15px; color: #81372f; box-shadow: var(--app-shadow); font-size: 12px; line-height: 1.5; }
 .unsupported { border: 1px dashed var(--app-line); border-radius: 10px; padding: 10px; color: var(--app-muted); font-size: 11px; }
 
 @keyframes appPulse { from { opacity: .4; } to { opacity: 1; } }
+@keyframes appStepFill {
+  0%, 100% { transform: scaleX(.35); opacity: .35; }
+  50% { transform: scaleX(1); opacity: 1; }
+}
 
 @media (max-width: 760px) {
   .grid[data-columns="3"],

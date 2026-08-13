@@ -6,7 +6,7 @@ const FIREBASE_AUTH_MESSAGES: Record<string, string> = {
   "auth/argument-error":
     "Sign-in couldn’t start the security check. Refresh and try again.",
   "auth/billing-not-enabled":
-    "SMS sign-in is temporarily unavailable. Try email instead.",
+    "SMS sign-in isn’t set up yet. Try again in a bit.",
   "auth/captcha-check-failed": "The security check expired. Please try again.",
   "auth/code-expired": "That code expired. Request a new one.",
   "auth/expired-action-code": "That email link expired. Request a fresh one.",
@@ -23,7 +23,7 @@ const FIREBASE_AUTH_MESSAGES: Record<string, string> = {
   "auth/network-request-failed": "The connection dropped. Please try again.",
   "auth/operation-not-allowed":
     "That sign-in method isn’t available right now. Try the other one.",
-  "auth/quota-exceeded": "SMS sign-in is temporarily unavailable. Try email instead.",
+  "auth/quota-exceeded": "Too many SMS sign-in attempts right now. Wait a bit and try again.",
   "auth/too-many-requests": "Too many attempts. Give it a little time, then try again.",
   "auth/unauthorized-domain":
     "This web address hasn’t been authorized for Dot sign-in yet.",

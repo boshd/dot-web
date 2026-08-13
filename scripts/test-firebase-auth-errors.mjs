@@ -38,6 +38,14 @@ try {
     "Sign-in couldn’t start the security check. Refresh and try again.",
   );
   assert.equal(
+    firebaseAuthErrorMessage({ code: "auth/billing-not-enabled" }, fallback),
+    "SMS sign-in isn’t set up yet. Try again in a bit.",
+  );
+  assert.equal(
+    firebaseAuthErrorMessage({ code: "auth/quota-exceeded" }, fallback),
+    "Too many SMS sign-in attempts right now. Wait a bit and try again.",
+  );
+  assert.equal(
     firebaseAuthErrorMessage({ code: "auth/operation-not-allowed" }, fallback),
     "That sign-in method isn’t available right now. Try the other one.",
   );

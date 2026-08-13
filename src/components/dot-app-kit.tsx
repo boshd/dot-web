@@ -147,8 +147,8 @@ export function KitStatePanel({
         {kind === "building" && (
           <div className={styles.buildSteps} aria-label="Build in progress">
             <span className={cx(styles.buildStep, styles.buildStepActive)} />
-            <span className={styles.buildStep} />
-            <span className={styles.buildStep} />
+            <span className={cx(styles.buildStep, styles.buildStepActive)} />
+            <span className={cx(styles.buildStep, styles.buildStepActive)} />
           </div>
         )}
         {action && (
