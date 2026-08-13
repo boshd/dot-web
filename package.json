@@ -5,6 +5,7 @@
   "scripts": {
     "test:generated-app-sanitizer": "node scripts/test-generated-app-sanitizer.mjs",
     "test:app-preview": "node scripts/test-app-preview.mjs",
+    "test:auth-errors": "node scripts/test-firebase-auth-errors.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

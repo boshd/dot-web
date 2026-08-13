@@ -46,6 +46,7 @@ import {
   openChatSession,
   sendChatMessage,
 } from "@/lib/api";
+import { AUTH_RECAPTCHA_CONTAINER_ID, firebaseAuthErrorMessage } from "@/lib/firebase-auth-errors";
 import { AppsPanel } from "@/components/apps-panel";
 import {
   getFirebaseAuth,
@@ -270,26 +271,6 @@ function AccessFrame({
 
 type AuthStage = "identifier" | "phone_code" | "email_sent" | "email_link";
 
-function firebaseErrorMessage(authError: unknown, fallback: string) {
-  const code = typeof authError === "object" && authError && "code" in authError
-    ? String(authError.code)
-    : "";
-  const messages: Record<string, string> = {
-    "auth/captcha-check-failed": "The security check expired. Please try again.",
-    "auth/code-expired": "That code expired. Request a new one.",
-    "auth/expired-action-code": "That email link expired. Request a fresh one.",
-    "auth/invalid-action-code": "That email link is invalid or has already been used.",
-    "auth/invalid-email": "Enter a valid email address.",
-    "auth/invalid-phone-number": "Use the full international number, including + and country code.",
-    "auth/invalid-verification-code": "That code didn’t work. Check it and try again.",
-    "auth/network-request-failed": "The connection dropped. Please try again.",
-    "auth/quota-exceeded": "SMS sign-in is temporarily unavailable. Try email instead.",
-    "auth/too-many-requests": "Too many attempts. Give it a little time, then try again.",
-    "auth/unauthorized-domain": "This web address hasn’t been authorized for Dot sign-in yet.",
-  };
-  return messages[code] ?? fallback;
-}
-
 function emailSignInCallbackUrl() {
   const callbackUrl = new URL("/", window.location.origin);
   callbackUrl.searchParams.set("auth", "email");
@@ -332,7 +313,7 @@ function FirebaseAuthScreen({ initialError }: { initialError?: string }) {
       setError(
         authError instanceof BenjiApiError
           ? authError.message
-          : firebaseErrorMessage(authError, "That email link couldn’t sign you in. Request a fresh one."),
+          : firebaseAuthErrorMessage(authError, "That email link couldn’t sign you in. Request a fresh one."),
       );
     } finally {
       setIsSubmitting(false);
@@ -382,11 +363,11 @@ function FirebaseAuthScreen({ initialError }: { initialError?: string }) {
     setError(undefined);
   }
 
-  async function requestPhoneCode(phoneNumber: string, verifierElementId: string) {
+  async function requestPhoneCode(phoneNumber: string) {
     if (!auth) return;
     recaptchaVerifierRef.current?.clear();
     confirmationResultRef.current = undefined;
-    const verifier = new RecaptchaVerifier(auth, verifierElementId, {
+    const verifier = new RecaptchaVerifier(auth, AUTH_RECAPTCHA_CONTAINER_ID, {
       size: "invisible",
     });
     recaptchaVerifierRef.current = verifier;
@@ -416,7 +397,7 @@ function FirebaseAuthScreen({ initialError }: { initialError?: string }) {
       const eligibility = await checkAuthEligibility(enteredIdentifier);
       setIdentifierDraft(eligibility.normalized_identifier);
       if (eligibility.kind === "phone") {
-        await requestPhoneCode(eligibility.normalized_identifier, "auth-continue-button");
+        await requestPhoneCode(eligibility.normalized_identifier);
       } else {
         await sendSignInLinkToEmail(auth, eligibility.normalized_identifier, {
           url: emailSignInCallbackUrl(),
@@ -431,7 +412,7 @@ function FirebaseAuthScreen({ initialError }: { initialError?: string }) {
       setError(
         authError instanceof BenjiApiError
           ? authError.message
-          : firebaseErrorMessage(authError, "I couldn’t start sign-in. Try again in a moment."),
+          : firebaseAuthErrorMessage(authError, "I couldn’t start sign-in. Try again in a moment."),
       );
     } finally {
       setIsSubmitting(false);
@@ -446,7 +427,7 @@ function FirebaseAuthScreen({ initialError }: { initialError?: string }) {
     try {
       await confirmationResultRef.current.confirm(code);
     } catch (authError) {
-      setError(firebaseErrorMessage(authError, "That code didn’t work. Check it and try again."));
+      setError(firebaseAuthErrorMessage(authError, "That code didn’t work. Check it and try again."));
     } finally {
       setIsSubmitting(false);
     }
@@ -463,14 +444,14 @@ function FirebaseAuthScreen({ initialError }: { initialError?: string }) {
         return;
       }
       setIdentifierDraft(eligibility.normalized_identifier);
-      await requestPhoneCode(eligibility.normalized_identifier, "auth-resend-button");
+      await requestPhoneCode(eligibility.normalized_identifier);
     } catch (authError) {
       recaptchaVerifierRef.current?.clear();
       recaptchaVerifierRef.current = undefined;
       setError(
         authError instanceof BenjiApiError
           ? authError.message
-          : firebaseErrorMessage(authError, "I couldn’t send another code. Try again in a moment."),
+          : firebaseAuthErrorMessage(authError, "I couldn’t send another code. Try again in a moment."),
       );
     } finally {
       setIsSubmitting(false);
@@ -503,6 +484,7 @@ function FirebaseAuthScreen({ initialError }: { initialError?: string }) {
 
   return (
     <AccessFrame eyebrow={authEyebrow} title={authTitle} description={authDescription}>
+        <div id={AUTH_RECAPTCHA_CONTAINER_ID} aria-hidden="true" />
         {isPhoneCode ? (
           <form onSubmit={verifyCode} className="mt-7 space-y-3">
             <label htmlFor="verification-code" className="block text-xs font-medium text-black/62">
