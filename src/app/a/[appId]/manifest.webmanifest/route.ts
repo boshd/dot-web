@@ -1,3 +1,5 @@
+import { FALLBACK_APP_PREVIEW, loadAppLinkPreview } from "@/lib/app-preview";
+
 type RouteContext = {
   params: Promise<{ appId: string }>;
 };
@@ -5,21 +7,29 @@ type RouteContext = {
 export async function GET(_request: Request, { params }: RouteContext) {
   const { appId } = await params;
   const encodedAppId = encodeURIComponent(appId);
+  const preview = await loadAppLinkPreview(appId);
+  const name =
+    preview.title === FALLBACK_APP_PREVIEW.title ? "Dot app" : preview.title;
 
   return Response.json(
     {
       id: `/a/${encodedAppId}`,
-      // A manifest request carries neither Firebase auth nor a fragment handoff.
-      // Never expose private app metadata through this unauthenticated endpoint.
-      name: "Dot app",
-      short_name: "Dot app",
-      description: "A useful app made by Dot.",
+      name,
+      short_name: name,
+      description: preview.description,
       start_url: `/a/${encodedAppId}`,
       scope: `/a/${encodedAppId}`,
       display: "standalone",
-      background_color: "#f5f4ef",
-      theme_color: "#e65f45",
-      icons: [{ src: "/dot-app-icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }],
+      background_color: "#f6f6f2",
+      theme_color: "#151512",
+      icons: [
+        {
+          src: `/a/${encodedAppId}/apple-icon`,
+          sizes: "180x180",
+          type: "image/png",
+          purpose: "any",
+        },
+      ],
     },
     { headers: { "Cache-Control": "private, no-store" } },
   );

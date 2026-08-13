@@ -46,6 +46,7 @@ is available only in `next dev`; production fails closed.
 ## Checks
 
 ```bash
+yarn test:app-preview
 yarn lint
 yarn build
 ```
