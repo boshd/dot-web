@@ -72,7 +72,12 @@
 }
 
 .brand { gap: 9px; color: color-mix(in srgb, var(--app-ink) 62%, transparent); font-size: 12px; font-weight: 600; }
-.brandMark { width: 8px; height: 8px; border-radius: 999px; background: var(--app-accent); box-shadow: 0 0 0 5px var(--app-accent-soft); }
+.brandMark {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--app-ink);
+}
 .chromeActions { gap: 8px; }
 
 .content {
